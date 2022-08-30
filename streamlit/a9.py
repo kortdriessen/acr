@@ -1,5 +1,5 @@
-import kd_analysis.main.kd_utils as kd
-import kd_analysis.main.kd_plotting as kp
+import kd_analysis.main.utils as kd
+import kd_analysis.main.plots as kp
 
 import pandas as pd
 import xarray
@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.io as pio
 import kd_analysis.ACR.a9_utils as a9u
-import kd_analysis.main.kd_hypno as kh
+import kd_analysis.main.hypno as kh
 pio.templates.default = "plotly_dark"
 
 import streamlit as st

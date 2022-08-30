@@ -2,9 +2,9 @@ import xarray as xr
 import pandas as pd
 import tdt
 import hypnogram as hp
-import kd_analysis.main.kd_utils as kd
-import kd_analysis.main.kd_hypno as kh
-import kd_analysis.main.kd_pandas as kpd
+import kd_analysis.main.utils as kd
+import kd_analysis.main.hypno as kh
+import kd_analysis.main.pandas as kpd
 import yaml
 from pathlib import Path
 

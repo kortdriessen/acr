@@ -5,8 +5,8 @@ from pathlib import Path
 import seaborn as sns
 import xarray
 
-import kd_analysis.main.kd_utils as kd
-import kd_analysis.main.kd_hypno as kh
+import kd_analysis.main.utils as kd
+import kd_analysis.main.hypno as kh
 import kd_analysis.ACR.acr_utils as acu
 import streamlit as st
 import dask

@@ -3,9 +3,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-import kd_analysis.main.kd_utils as kd
-import kd_analysis.main.kd_plotting as kp
-import kd_analysis.main.kd_hypno as kh
+import kd_analysis.main.utils as kd
+import kd_analysis.main.plots as kp
+import kd_analysis.main.hypno as kh
 
 bp_def = dict(sub_delta=(0.5, 2), delta=(0.5, 4), theta=(4, 8), alpha = (8, 13), sigma = (11, 16), beta = (13, 30), low_gamma = (30, 55), high_gamma = (65, 90), omega=(300, 700))
 

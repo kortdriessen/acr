@@ -1,5 +1,5 @@
 import sleep_score_for_me.v4 as ssfm
-import kd_analysis.main.kd_utils as kd
+import kd_analysis.main.utils as kd
 import pandas as pd
 import numpy as np
 from pathlib import Path
