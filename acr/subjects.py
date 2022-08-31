@@ -17,3 +17,8 @@ a11_info['start_times'] = {}
 a11_info['start_times']['laser1'] = 5974
 a11_info['start_times']['laser1-bl'] = 0
 
+
+a12_info = {}
+a12_info['subject'] = 'ACR_12'
+a12_info['complete_key_list'] = ['control1-bl', 'laser1-bl', 'control1', 'laser1']
+a12_info['paths'] = acu.get_paths(a12_info['subject'], a12_info['complete_key_list'])
