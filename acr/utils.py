@@ -1,12 +1,6 @@
-import xarray as xr
 import pandas as pd
 import tdt
-import hypnogram as hp
-import kd_analysis.main.utils as kd
-import kd_analysis.main.hypno as kh
-import kd_analysis.main.pandas as kpd
-import yaml
-from pathlib import Path
+import kdephys.main.pandas as kpd
 
 bp_def = dict(delta1=(0.75, 1.75), delta2=(2.5, 3.5), delta=(0.75, 4), theta=(4, 8), alpha = (8, 13), sigma = (11, 16), beta = (13, 30), low_gamma = (30, 55), high_gamma = (65, 90), hz40 = [39, 41])
 

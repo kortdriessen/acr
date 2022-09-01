@@ -6,7 +6,7 @@ authors = ["Kort Driessen <driessenkort@gmail.com>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.12"
+python = ">=3.8,<3.9.7 || >3.9.7,<3.12"
 sleep-score-for-me = {git = "https://github.com/kortdriessen/sleep_score_for_me.git"}
 pandas = "^1.4.3"
 xarray = "^2022.6.0"
@@ -17,7 +17,7 @@ streamlit = "^1.12.2"
 ipympl = "^0.9.2"
 spikeinterface = "^0.94.0"
 PyYAML = "^6.0"
-kdephys = {path = "../kdephys"}
+kdephys = {path = "../kdephys/", develop = true}
 
 [tool.poetry.dev-dependencies]
 

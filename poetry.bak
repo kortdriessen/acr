@@ -697,30 +697,6 @@ optional = false
 python-versions = ">=3.7"
 
 [[package]]
-name = "kdephys"
-version = "0.1.0"
-description = "Personal analysis functions for electrophysiology"
-category = "main"
-optional = false
-python-versions = ">=3.8,<3.12"
-develop = true
-
-[package.dependencies]
-hypnogram = {git = "https://github.com/CSC-UW/hypnogram.git", branch = "master"}
-matplotlib = "^3.5.3"
-neurodsp = "^2.1.0"
-numpy = "^1.23.2"
-pandas = "^1.4.4"
-scipy = "^1.9.1"
-seaborn = "^0.11.2"
-tdt = "^0.5.3"
-xarray = "^2022.6.0"
-
-[package.source]
-type = "directory"
-url = "../kdephys"
-
-[[package]]
 name = "kiwisolver"
 version = "1.4.4"
 description = "A fast implementation of the Cassowary constraint solver"
@@ -1535,17 +1511,6 @@ validators = ">=0.2"
 watchdog = {version = "*", markers = "platform_system != \"Darwin\""}
 
 [[package]]
-name = "tdt"
-version = "0.5.3"
-description = "Tucker-Davis Technologies (TDT) Python APIs for reading data and interacting with Synapse software"
-category = "main"
-optional = false
-python-versions = "*"
-
-[package.dependencies]
-numpy = "*"
-
-[[package]]
 name = "tenacity"
 version = "8.0.1"
 description = "Retry code until it succeeds"
@@ -1791,7 +1756,7 @@ testing = ["func-timeout", "jaraco.itertools", "pytest (>=6)", "pytest-black (>=
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8,<3.9.7 || >3.9.7,<3.12"
-content-hash = "5515429e54b2f14cb873f76a25ca94c1a5b18df35489290a4da518f8c9154d71"
+content-hash = "79afb0e5900117fe583e50d05b7344566a81bb49f4fea9c51a41d7c8713139aa"
 
 [metadata.files]
 altair = [
@@ -2106,7 +2071,6 @@ jupyterlab-widgets = [
     {file = "jupyterlab_widgets-3.0.2-py3-none-any.whl", hash = "sha256:98303a281f4004670cdcea2ef4aecba19c580adc297664c593f967025625c8c5"},
     {file = "jupyterlab_widgets-3.0.2.tar.gz", hash = "sha256:47ab54cd165aa0cb3bcef1232d77471580cd2c36bbe2153fc5ba31e26ad87320"},
 ]
-kdephys = []
 kiwisolver = [
     {file = "kiwisolver-1.4.4-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:2f5e60fabb7343a836360c4f0919b8cd0d6dbf08ad2ca6b9cf90bf0c76a3c4f6"},
     {file = "kiwisolver-1.4.4-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:10ee06759482c78bdb864f4109886dff7b8a56529bc1609d4f1112b93fe6423c"},
@@ -2893,10 +2857,6 @@ stack-data = [
 streamlit = [
     {file = "streamlit-1.12.2-py2.py3-none-any.whl", hash = "sha256:c56d0775feb39116ff90a8b01ee15be27212ee50abb88943607205d26d1d9923"},
     {file = "streamlit-1.12.2.tar.gz", hash = "sha256:f0461bebd6c1b58c38f0f602ee9bb6699f66dfe14fd2e05abc25ebe96ff4ba21"},
-]
-tdt = [
-    {file = "tdt-0.5.3-py3-none-any.whl", hash = "sha256:5f09e010313ad8073ba485ae6d7c6807429212ba612c7194c88b2541730f50e0"},
-    {file = "tdt-0.5.3.tar.gz", hash = "sha256:2cc4c453864c162bb325d83cfe7657549483f35ae1945da5c5af725641452e4c"},
 ]
 tenacity = [
     {file = "tenacity-8.0.1-py3-none-any.whl", hash = "sha256:f78f4ea81b0fabc06728c11dc2a8c01277bfc5181b321a4770471902e3eb844a"},
