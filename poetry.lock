@@ -239,14 +239,14 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
 name = "boto3"
-version = "1.24.64"
+version = "1.24.65"
 description = "The AWS SDK for Python"
 category = "main"
 optional = false
 python-versions = ">= 3.7"
 
 [package.dependencies]
-botocore = ">=1.27.64,<1.28.0"
+botocore = ">=1.27.65,<1.28.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.6.0,<0.7.0"
 
@@ -255,7 +255,7 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "botocore"
-version = "1.27.64"
+version = "1.27.65"
 description = "Low-level, data-driven core of boto 3."
 category = "main"
 optional = false
@@ -654,25 +654,6 @@ python-versions = ">=3.7"
 
 [package.dependencies]
 numpy = ">=1.14.5"
-
-[[package]]
-name = "hypnogram"
-version = "0.1.dev0"
-description = "hypnogram: Simple DataFrame hypnogram utilities."
-category = "main"
-optional = false
-python-versions = ">= 3.7"
-develop = false
-
-[package.dependencies]
-numpy = "*"
-pandas = "*"
-
-[package.source]
-type = "git"
-url = "https://github.com/CSC-UW/hypnogram.git"
-reference = "master"
-resolved_reference = "7138f1695f34e6f0fe1d5f50ffe80cc11b69d793"
 
 [[package]]
 name = "ibl-neuropixel"
@@ -1164,9 +1145,8 @@ python-versions = ">=3.8,<3.12"
 develop = true
 
 [package.dependencies]
-hypnogram = {git = "https://github.com/CSC-UW/hypnogram.git", branch = "master"}
+ecephys = {path = "../ecephys", develop = true}
 matplotlib = "3.5.1"
-neurodsp = "^2.1.0"
 numpy = "^1.18"
 pandas = "^1.4.4"
 scipy = "^1.9.1"
@@ -1449,19 +1429,6 @@ description = "Patch asyncio to allow nested event loops"
 category = "main"
 optional = false
 python-versions = ">=3.5"
-
-[[package]]
-name = "neurodsp"
-version = "2.1.0"
-description = "Digital signal processing for neural time series."
-category = "main"
-optional = false
-python-versions = ">=3.5"
-
-[package.dependencies]
-matplotlib = "*"
-numpy = "*"
-scipy = "*"
 
 [[package]]
 name = "notebook"
@@ -2695,7 +2662,7 @@ testing = ["func-timeout", "jaraco.itertools", "pytest (>=6)", "pytest-black (>=
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8,<3.9.7 || >3.9.7,<3.12"
-content-hash = "ce80d118d9fad90229f827f9519a61bfcccbe77424dbadc47a9bf4677fd306ca"
+content-hash = "6ab8505322164b422896fe56b53725c86dbc85c72d42215e0c7e11e7bf4c3980"
 
 [metadata.files]
 altair = [
@@ -2819,12 +2786,12 @@ blinker = [
     {file = "blinker-1.5.tar.gz", hash = "sha256:923e5e2f69c155f2cc42dafbbd70e16e3fde24d2d4aa2ab72fbe386238892462"},
 ]
 boto3 = [
-    {file = "boto3-1.24.64-py3-none-any.whl", hash = "sha256:232ce2e82cf7d79f3ec02d301fd370a8e21ede81d5be3d9edf182ad10dc24e30"},
-    {file = "boto3-1.24.64.tar.gz", hash = "sha256:932edb4373cca0062521a236af46d80115598d3056c7356f00fee26db25efcd7"},
+    {file = "boto3-1.24.65-py3-none-any.whl", hash = "sha256:6bfa24a48ad49ee5f89b7a0572106d8009f892ef927556bdc663230bfa11d05f"},
+    {file = "boto3-1.24.65.tar.gz", hash = "sha256:e32ce034ac1acaff3607dd31766b4096036cdc5539d76cad41370d6d2a29a881"},
 ]
 botocore = [
-    {file = "botocore-1.27.64-py3-none-any.whl", hash = "sha256:670aec1c6f201a06ad7fbf252485629f4cd17e63e31dea5b67accb4d08b5f2fa"},
-    {file = "botocore-1.27.64.tar.gz", hash = "sha256:25793c7e13d989ba27bbca83ea5e19a4ee1cf7ddbab2c0ab3d63461e64e9be50"},
+    {file = "botocore-1.27.65-py3-none-any.whl", hash = "sha256:2ba1494bc74e2e0e0915ee68e178f8511264daa30b96abb4240a17d47eeea894"},
+    {file = "botocore-1.27.65.tar.gz", hash = "sha256:17bde907b09a3a869ec2281e35dd3dbaa702a34c19aa81c19d0a142127d57be7"},
 ]
 cachetools = [
     {file = "cachetools-5.2.0-py3-none-any.whl", hash = "sha256:f9f17d2aec496a9aa6b76f53e3b614c965223c061982d434d160f930c698a9db"},
@@ -3054,7 +3021,6 @@ h5py = [
     {file = "h5py-3.7.0-cp39-cp39-win_amd64.whl", hash = "sha256:9e2ad2aa000f5b1e73b5dfe22f358ca46bf1a2b6ca394d9659874d7fc251731a"},
     {file = "h5py-3.7.0.tar.gz", hash = "sha256:3fcf37884383c5da64846ab510190720027dca0768def34dd8dcb659dbe5cbf3"},
 ]
-hypnogram = []
 ibl-neuropixel = [
     {file = "ibl-neuropixel-0.3.0.tar.gz", hash = "sha256:eb77f931e5f46a5c12dfb7588e5abd3c29fcde9e8528515f798199557a0dff2f"},
     {file = "ibl_neuropixel-0.3.0-py3-none-any.whl", hash = "sha256:8c5511b0d9c91f9f3a20909fd81d43983866a557291701c008149852ee4658b4"},
@@ -3471,10 +3437,6 @@ neo = [
 nest-asyncio = [
     {file = "nest_asyncio-1.5.5-py3-none-any.whl", hash = "sha256:b98e3ec1b246135e4642eceffa5a6c23a3ab12c82ff816a92c612d68205813b2"},
     {file = "nest_asyncio-1.5.5.tar.gz", hash = "sha256:e442291cd942698be619823a17a86a5759eabe1f8613084790de189fe9e16d65"},
-]
-neurodsp = [
-    {file = "neurodsp-2.1.0-py3-none-any.whl", hash = "sha256:9307269367aa2fdc6e571158979cb3d9071c6ecaa5ba6580667afac492ab74b3"},
-    {file = "neurodsp-2.1.0.tar.gz", hash = "sha256:4ec713c3dda5bc3af7facf5b81ee5374fe520b131e71cc16e66f02834a07ff7f"},
 ]
 notebook = [
     {file = "notebook-6.4.12-py3-none-any.whl", hash = "sha256:8c07a3bb7640e371f8a609bdbb2366a1976c6a2589da8ef917f761a61e3ad8b1"},
