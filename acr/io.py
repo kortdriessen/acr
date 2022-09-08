@@ -1,6 +1,7 @@
 import pandas as pd
 from pathlib import Path
 import yaml
+import tdt
 
 import kdephys.hypno as kh
 import kdephys.pd as kp
@@ -147,8 +148,12 @@ def dataset_to_pandas(dataset, name=None):
     return dataset
 
 
-def load_saved_dataset(si, type):
-    # TODO: probably needs an update to include the store (EEGr, NNXr, etc.)
+def load_saved_dataset(si, data_tag, type):
+    """
+    data_tage --> e.g. '-EEGr'
+    type --> e.g. '-spg'
+    """
+    # TODO: probably needs an update to include the store (-EEGr, NNXr, etc.)
     # TODO: should probably import the data as my pandas ecdata class
 
     cond_list = si["complete_key_list"]
@@ -219,7 +224,6 @@ def acr_load_master(info, type="pandas", stores=["EEGr", "LFP_"]):
     -----------
     info --> subject info dictionary, ALL RELEVANT INFORMATION IS DEFINED HERE!
     type --> 'pandas' or 'xarray'
-    # TODO: sort out the xarray option
     """
 
     # Load the data
