@@ -4,20 +4,11 @@ import yaml
 import tdt
 
 import kdephys.hypno as kh
-import kdephys.pd as kp
+import kdephys.pd as kpd
+from kdephys.pd.ecdata import ecdata
 import kdephys.xr as kx
 import kdephys.utils as ku
-import kdephys.ssfm as ss
-import ipywidgets as wd
-import acr.subjects as asub
-import ecephys.hypnogram as eh
-
-import acr
-
-import plotly.express as px
-import plotly.io as pio
-
-pio.templates.default = "plotly_dark"
+from ecephys.hypnogram import DatetimeHypnogram
 
 bands = ku.spectral.bands
 
@@ -131,11 +122,11 @@ def add_hypnograms_to_dataset(dataset, hypno_set):
 
 def get_spectral(data, hyp, bp_def=bands):
     spg = kx.spectral.get_spg_from_dataset(data)
-    # spg = add_hypnograms_to_dataset(spg, hyp)
+    spg = add_hypnograms_to_dataset(spg, hyp)
     bp = {}
     for key in list(spg.keys()):
         bp[key] = kx.spectral.get_bp_set(spg[key], bp_def)
-    # bp = add_hypnograms_to_dataset(bp, hyp)
+    bp = add_hypnograms_to_dataset(bp, hyp)
     return spg, bp
 
 
@@ -145,10 +136,11 @@ def dataset_to_pandas(dataset, name=None):
         dataset[key] = redo_timdelta(dataset[key])
         dataset[key]["condition"] = key
         dataset[key] = dataset[key].reset_index()
+        dataset[key] = ecdata(dataset[key])
     return dataset
 
 
-def load_saved_dataset(si, data_tag, type):
+def load_saved_dataset(si, data_tags, type):
     """
     data_tage --> e.g. '-EEGr'
     type --> e.g. '-spg'
@@ -162,10 +154,24 @@ def load_saved_dataset(si, data_tag, type):
         "/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/" + sub + "/" + "analysis-data/"
     )
     ds = {}
-    for cond in cond_list:
-        path = path_root + cond + type + ".pkl"
-        ds[cond] = pd.read_pickle(path)
-    return ds
+    if type == "-hypno":
+        for cond in cond_list:
+            try:
+                path = path_root + cond + type + ".pkl"
+                ds[cond] = pd.read_pickle(path)
+                ds[cond] = DatetimeHypnogram(ds[cond])
+            except:
+                print("No hypnogram for condition: ", cond)
+        return ds
+
+    else:
+        for cond in cond_list:
+            for tag in data_tags:
+                key = cond + tag
+                path = path_root + key + type + ".pkl"
+                ds[key] = pd.read_pickle(path)
+                # ds[key] = ecdata(ds[key])
+        return ds
 
 
 def save_dataframes(df_dict, si, type="-bp"):
