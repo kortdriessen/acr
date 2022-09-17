@@ -2,6 +2,19 @@ from . import utils as acu
 from . import io as acio
 import pandas as pd
 
+a4_info = {}
+a4_info["subject"] = "ACR_4"
+a4_info["complete_key_list"] = ["laser1-bl", "laser1-sd"]
+a4_info["paths"] = acio.get_acr_paths(a4_info["subject"], a4_info["complete_key_list"])
+a4_info["times"] = {}
+
+a4_info["load_times"] = {}
+a4_info["load_times"]["laser1-bl"] = (0, 18000)
+a4_info["load_times"]["laser1-sd"] = (0, 0)
+a4_info["channels"] = {}
+a4_info["channels"]["EEGr"] = [1, 2]
+a4_info["channels"]["EMGr"] = [1, 2]
+
 a9_info = {}
 a9_info["subject"] = "ACR_9"
 a9_info["complete_key_list"] = ["control1", "laser1"]
@@ -87,10 +100,18 @@ a13_info["paths"] = acio.get_acr_paths(
 )
 a13_info["load_times"] = {}
 a13_info["load_times"]["laser1-bl"] = (0, 14400)
-a13_info["load_times"]["laser1"] = (16067, 30000)
+a13_info["load_times"]["laser1"] = (14027, 0)
 a13_info["channels"] = {}
 a13_info["channels"]["EEGr"] = [1, 2]
 a13_info["channels"]["NNXr"] = list(range(1, 17))
 a13_info["channels"]["LFP_"] = list(range(1, 17))
 a13_info["channels"]["LFPo"] = list(range(1, 17))
 a13_info["channels"]["NNXo"] = list(range(1, 17))
+
+
+a14_info = {}
+a14_info["subject"] = "ACR_14"
+a14_info["complete_key_list"] = ["laser1-bl", "laser1"]
+a14_info["load_times"] = {}
+a14_info["load_times"]["laser1-bl"] = (0, 0)
+a14_info["load_times"]["laser1"] = (13999, 0)

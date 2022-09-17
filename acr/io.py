@@ -67,6 +67,8 @@ def check_hypno(subject, condition):
 
 
 def _load_hypno(subject, condition, start_time):
+    "critical - this only works for loading continuous hypnograms"
+    # TODO: make this more flexible for loading discontinuous hypnograms from the same experiment
     hypnograms_yaml_file = (
         "/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/acr-hypno-paths.yaml"
     )
@@ -122,11 +124,11 @@ def add_hypnograms_to_dataset(dataset, hypno_set):
 
 def get_spectral(data, hyp, bp_def=bands):
     spg = kx.spectral.get_spg_from_dataset(data)
-    spg = add_hypnograms_to_dataset(spg, hyp)
+    # spg = add_hypnograms_to_dataset(spg, hyp)
     bp = {}
     for key in list(spg.keys()):
         bp[key] = kx.spectral.get_bp_set(spg[key], bp_def)
-    bp = add_hypnograms_to_dataset(bp, hyp)
+    # bp = add_hypnograms_to_dataset(bp, hyp)
     return spg, bp
 
 
@@ -140,12 +142,11 @@ def dataset_to_pandas(dataset, name=None):
     return dataset
 
 
-def load_saved_dataset(si, data_tags, type):
+def load_saved_dataset(si, type, data_tags=None):
     """
     data_tage --> e.g. '-EEGr'
     type --> e.g. '-spg'
     """
-    # TODO: probably needs an update to include the store (-EEGr, NNXr, etc.)
     # TODO: should probably import the data as my pandas ecdata class
 
     cond_list = si["complete_key_list"]
@@ -221,7 +222,7 @@ def ss_times(sub, exp, print_=False):
     return times
 
 
-def acr_load_master(info, type="pandas", stores=["EEGr", "LFP_"]):
+def acr_load_master(info, type="pandas", stores=["EEGr", "LFP_"], hyp=True):
     """
     returns: dataset, spg_set, bp_set, hypno_set.
     hypno_sets is only the mannually scored hypnograms.
@@ -235,19 +236,25 @@ def acr_load_master(info, type="pandas", stores=["EEGr", "LFP_"]):
     # Load the data
     data = load_subject_data(info, stores=stores)
 
-    # Load the hypnograms
-    hyp = load_hypno(info, data)
-
-    # Add the hypnograms to the data
-    data = add_hypnograms_to_dataset(data, hyp)
+    if hyp:
+        # Load the hypnograms
+        hyp = load_hypno(info, data)
+        # Add the hypnograms to the data
+        data = add_hypnograms_to_dataset(data, hyp)
 
     # Calculate the spectral data
     spg, bp = get_spectral(data, hyp)
 
     if type == "xarray":
-        return data, spg, bp, hyp
+        if hyp:
+            return data, spg, bp, hyp
+        else:
+            return data, spg, bp
     elif type == "pandas":
         data = dataset_to_pandas(data, name="data")
         spg = dataset_to_pandas(spg, name="spg")
         bp = dataset_to_pandas(bp)
-        return data, spg, bp, hyp
+        if hyp:
+            return data, spg, bp, hyp
+        else:
+            return data, spg, bp
