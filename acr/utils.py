@@ -1,5 +1,8 @@
 import pandas as pd
 import yaml
+import acr
+import tdt
+import numpy as np
 
 
 def add_time_class(df, times):
@@ -47,7 +50,7 @@ def gen_config(
         data["datasets"][0]["chanList"] = chans
         # Set the times
         tend = (chunk * chunk_length) + start_from
-        data["tStart"] = (tend - chunk_length) + start_from
+        data["tStart"] = tend - chunk_length
         data["tEnd"] = tend
         # Save the file with a new name based on the actual subject, experiment, and chunk
         config_path = (
@@ -55,3 +58,30 @@ def gen_config(
         )
         with open(config_path, "w") as f:
             yaml.dump(data, f)
+
+
+def tdt_to_dt(info, data, time_key, slc=True):
+    """converts tdt time to datetime"""
+
+    start = data.datetime.values.min()
+    tmin = data.time.values.min()
+    dt_start = pd.to_timedelta((info["times"][time_key][0] - tmin), unit="s") + start
+    dt_end = pd.to_timedelta((info["times"][time_key][1] - tmin), unit="s") + start
+    if slc:
+        return slice(dt_start, dt_end)
+    else:
+        return (dt_start, dt_end)
+
+
+def get_rec_times(si):
+    sub = si["subject"]
+    times = {}
+    for exp in si["complete_key_list"]:
+        p = acr.io.acr_path(sub, exp)
+        d = tdt.read_block(p, t1=0, t2=1, evtype=["scalars"])
+        i = d.info
+        start = np.datetime64(i.start_date)
+        end = np.datetime64(i.stop_date)
+        d = (end - start) / np.timedelta64(1, "s")
+        times[exp] = (start, end, d)
+    return times

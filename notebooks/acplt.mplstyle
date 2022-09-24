@@ -1,0 +1,6 @@
+# Set custom colors. All colors are in web style hex format.
+axes.prop_cycle: cycler('color', ['1879CE', 'FC4F30', '3EBCD2', '379A8B', 'EBB434', '758D99'])
+
+# Main axes Properties
+axes.facecolor: white     
+axes.edgecolor:  black
