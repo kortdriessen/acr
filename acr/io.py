@@ -293,9 +293,6 @@ def acr_load_master(info, type="xarray", stores=["EEGr", "LFP_"], hyp=True):
         bp = add_hypnograms_to_dataset(bp, hyp)
 
     if type == "xarray":
-        data = ecx(data)
-        bp = ecx(bp)
-        spg = ecx(spg)
         spg = data_dict(spg)
         bp = data_dict(bp)
         data = data_dict(data)

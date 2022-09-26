@@ -1,3 +1,5 @@
+# NOTES: This is the sorting data for ACR_14, blocks = laser1-bl and laser1, from the NNXo (optrode) store.
+
 from pipeline_tdt import run_pipeline_tdt
 
 """Copy, modify and run to run the whole pipeline for several datasets."""
@@ -13,8 +15,10 @@ tdt_folder_paths_and_sorting_output_dir_list = [
     (
         [
             "/Volumes/opto_loc/Data/ACR_14/ACR_14-laser1-bl/",
+            "/Volumes/opto_loc/Data/ACR_14/ACR_14-laser1/",
+            "/Volumes/opto_loc/Data/ACR_14/ACR_14-laser1-post1/",
         ],
-        "/nvme/sorting/tdt/ACR_14-laser1-bl/",
+        "/nvme/sorting/tdt/ACR_14-laser1-NNXo/",
     ),
 ]
 
@@ -38,7 +42,7 @@ dry_run = False
 # Constants
 STORE = "NNXo"
 NCHANS = 16
-T_END = 43200
+T_END = 0
 
 assert bad_channel_ids is None  # TODO check that works fine
 

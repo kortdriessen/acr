@@ -11,6 +11,7 @@ kdephys = {path = "../kdephys/", develop = true}
 ecephys = {path = "../ecephys/", develop = true}
 plotly = "^5.10.0"
 streamlit = "^1.12.2"
+netCDF4 = "^1.6.1"
 
 [tool.poetry.dev-dependencies]
 
