@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+plt.style.use(".\acr_plots.mplstyle")
 
 bp_def = dict(
     sub_delta=(0.5, 2),

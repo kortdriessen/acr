@@ -3,4 +3,5 @@ from . import (
     plots,
     subjects,
     utils,
+    info_pipeline,
 )
