@@ -1,5 +1,3 @@
-# NOTES: This is the sorting data for ACR_14, blocks = laser1-bl and laser1, from the NNXo (optrode) store.
-
 from pipeline_tdt import run_pipeline_tdt
 
 """Copy, modify and run to run the whole pipeline for several datasets."""
@@ -14,11 +12,9 @@ tdt_folder_paths_and_sorting_output_dir_list = [
     # ),
     (
         [
-            "/Volumes/opto_loc/Data/ACR_14/ACR_14-laser1-bl/",
-            "/Volumes/opto_loc/Data/ACR_14/ACR_14-laser1/",
-            "/Volumes/opto_loc/Data/ACR_14/ACR_14-laser1-post1/",
+            "/Volumes/opto_loc/Data/ACR_14/ACR_14-short2",
         ],
-        "/nvme/sorting/tdt/ACR_14-laser1-NNXo/",
+        "/nvme/sorting/tdt/ACR_14-short-plug-NNXo/",
     ),
 ]
 
@@ -32,7 +28,7 @@ artifact_frames_list = None  # Sample/frame indices. ms_before and ms_after para
 
 # Sorting
 sorting_analysis_name = (
-    "ks2_5_no-drift-correction"  # Must be in 'sorting' doc in analysis_cfg.yaml
+    "ks2_5_nblocks=1_8s-batches"  # Must be in 'sorting' doc in analysis_cfg.yaml
 )
 
 # Misc
@@ -40,9 +36,10 @@ rerun_existing = True
 dry_run = False
 
 # Constants
+# T_END should be a list where each value corresponds to a path in tdt_folder_paths at the same index
 STORE = "NNXo"
 NCHANS = 16
-T_END = 0
+T_END = [520]
 
 assert bad_channel_ids is None  # TODO check that works fine
 

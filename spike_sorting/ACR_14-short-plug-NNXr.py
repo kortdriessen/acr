@@ -12,9 +12,11 @@ tdt_folder_paths_and_sorting_output_dir_list = [
     # ),
     (
         [
-            "/Volumes/opto_loc/Data/ACR_13/ACR_13-laser1-bl/",
+            "/Volumes/opto_loc/Data/ACR_14/ACR_14-short1/",
+            "/Volumes/opto_loc/Data/ACR_14/ACR_14-short2/",
+            "/Volumes/opto_loc/Data/ACR_14/ACR_14-short3/",
         ],
-        "/nvme/sorting/tdt/ACR_13-laser1-bl/",
+        "/nvme/sorting/tdt/ACR_14-short-plugged-NNXr/",
     ),
 ]
 
@@ -28,7 +30,7 @@ artifact_frames_list = None  # Sample/frame indices. ms_before and ms_after para
 
 # Sorting
 sorting_analysis_name = (
-    "ks2_5_no-drift-correction"  # Must be in 'sorting' doc in analysis_cfg.yaml
+    "ks2_5_nblocks=1_8s-batches"  # Must be in 'sorting' doc in analysis_cfg.yaml
 )
 
 # Misc
@@ -36,9 +38,10 @@ rerun_existing = True
 dry_run = False
 
 # Constants
-STORE = "NNXo"
+# T_END should be a list where each value corresponds to a path in tdt_folder_paths at the same index
+STORE = "NNXr"
 NCHANS = 16
-T_END = 43200
+T_END = [325, 520, 485]
 
 assert bad_channel_ids is None  # TODO check that works fine
 
