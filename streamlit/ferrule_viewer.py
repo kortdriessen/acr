@@ -6,7 +6,7 @@ import streamlit as st
 import seaborn as sns
 import os
 
-root = "/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/ferrules/f1"
+root = "/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/ferrules/"
 
 
 @st.cache()

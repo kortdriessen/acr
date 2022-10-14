@@ -12,9 +12,9 @@ tdt_folder_paths_and_sorting_output_dir_list = [
     # ),
     (
         [
-            "/Volumes/opto_loc/Data/ACR_14/ACR_14-short2",
+            "/Volumes/opto_loc/Data/ACR_14/ACR_14-swi-bl/",
         ],
-        "/nvme/sorting/tdt/ACR_14-short-plug-NNXo/",
+        "/nvme/sorting/tdt/test-sleep-NNXr/",
     ),
 ]
 
@@ -24,6 +24,13 @@ prepro_analysis_name = (
 )
 bad_channel_ids = None  #  TODO!! eg ["NNXr-2"]. Applied to all datasets.
 artifact_frames_list = None  # Sample/frame indices. ms_before and ms_after params pulled from params.yaml. eg [10000, 110000]. Applied to all datasets. TODO if concatenating
+# Zero-out some bouts
+hyp_paths = [
+    "/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/ACR_14/hypnograms/ss_test.csv",
+    # "/path/to/block2/hyp.csv",
+]  # Hypno of each block. Paths to .csv hypnogram with 'state', 'duration', 'start_time', 'end_time' columns
+# hyp_artifactual_states = ['Art', 'A', 'Artifact', 'artifact'] # Requires hypnograms if specified
+hyp_artifactual_states = ["Art", "Wake"]  # Requires hypnograms if specified
 
 
 # Sorting
@@ -37,9 +44,9 @@ dry_run = False
 
 # Constants
 # T_END should be a list where each value corresponds to a path in tdt_folder_paths at the same index
-STORE = "NNXo"
+STORE = "NNXr"
 NCHANS = 16
-T_END = [520]
+T_END = [7200]
 
 assert bad_channel_ids is None  # TODO check that works fine
 
@@ -54,6 +61,10 @@ if __name__ == "__main__":
             nchans=NCHANS,
             t_end=T_END,
             prepro_analysis_name=prepro_analysis_name,
+            bad_channel_ids=bad_channel_ids,
+            artifact_frames_list=artifact_frames_list,
+            hyp_paths=hyp_paths,
+            hyp_artifactual_states=hyp_artifactual_states,
             sorting_analysis_name=sorting_analysis_name,
             # postpro_analysis_name=postpro_analysis_name,
             rerun_existing=rerun_existing,

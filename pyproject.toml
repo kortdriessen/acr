@@ -12,6 +12,7 @@ ecephys = {path = "../ecephys/", develop = true}
 plotly = "^5.10.0"
 streamlit = "^1.12.2"
 netCDF4 = "^1.6.1"
+openpyxl = "^3.0.10"
 
 [tool.poetry.dev-dependencies]
 

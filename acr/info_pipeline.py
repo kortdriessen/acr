@@ -19,7 +19,8 @@ import acr
 import acr.utils as acu
 import plotly.express as px
 
-plt.style.use("acr_plots.mplstyle")
+# plt.style.use(Path("acr_plots.mplstyle"))
+
 import os
 from itertools import cycle
 
@@ -100,10 +101,10 @@ def subject_info_gen(params):
         yaml.dump(data, f)
 
 
-def preprocess_and_save_exps(subject, fs_target=400, t1=0, t2=0):
+def preprocess_and_save_exp(subject, rec, fs_target=400, t1=0, t2=0):
     """
     Preprocesses (downsample via decimate) and saves timeseries data as xarray objects.
-    Goes through all important recordings in in the subject's preprocess-list in the subject_info.yml file.
+    Takes a single experiment ID loads the relevant stores from raw_stores and saves that.
     Channels are specified in the subject_info.yml file.
     Stores to use are defined by raw_stores in the subject_info.yml file.
     """
@@ -113,12 +114,11 @@ def preprocess_and_save_exps(subject, fs_target=400, t1=0, t2=0):
     with open(path) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
     raw_data = {}
-    for rec in data["preprocess-list"]:
-        path = data["paths"][rec]
-        for store in data["raw_stores"]:
-            raw_data[rec + "-" + store] = kx.io.get_data(
-                path, store, channel=data["channels"][store], t1=t1, t2=t2
-            )
+    path = data["paths"][rec]
+    for store in data["raw_stores"]:
+        raw_data[rec + "-" + store] = kx.io.get_data(
+            path, store, channel=data["channels"][store], t1=t1, t2=t2
+        )
 
     # Decimate raw data
     dec_data = {}
@@ -143,7 +143,7 @@ def preprocess_and_save_exps(subject, fs_target=400, t1=0, t2=0):
     return
 
 
-def prepro_lite(subject, fs_target=100, t1=0, t2=0):
+def prepro_lite(subject, rec, fs_target=100, t1=0, t2=0):
     """
     Preprocess and save all experiments which were not included in preprocess-list in subject_info.yml.
     """
@@ -152,21 +152,20 @@ def prepro_lite(subject, fs_target=100, t1=0, t2=0):
     with open(path) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
     raw_data = {}
-    for rec in data["recordings"]:
-        if rec not in data["preprocess-list"]:
-            path = data["paths"][rec]
-            try:
-                for store in data["lite_stores"]:
-                    raw_data[rec + "-" + store] = kx.io.get_data(
-                        path, store, channel=data["channels"][store], t1=t1, t2=t2
-                    )
-            except:
-                print("no lite stores for " + rec)
-                print("using raw_stores for " + rec)
-                for store in data["raw_stores"]:
-                    raw_data[rec + "-" + store] = kx.io.get_data(
-                        path, store, channel=data["channels"][store], t1=t1, t2=t2
-                    )
+    path = data["paths"][rec]
+
+    try:
+        for store in data["lite_stores"]:
+            raw_data[rec + "-" + store] = kx.io.get_data(
+                path, store, channel=data["channels"][store], t1=t1, t2=t2
+            )
+    except:
+        print("no lite stores for " + rec)
+        print("using raw_stores for " + rec)
+        for store in data["raw_stores"]:
+            raw_data[rec + "-" + store] = kx.io.get_data(
+                path, store, channel=data["channels"][store], t1=t1, t2=t2
+            )
     # Decimate the data
     dec_data = {}
     for key in raw_data.keys():
