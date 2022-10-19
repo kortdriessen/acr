@@ -12,25 +12,23 @@ tdt_folder_paths_and_sorting_output_dir_list = [
     # ),
     (
         [
-            "/Volumes/opto_loc/Data/ACR_14/ACR_14-swi-bl/",
+            "/Volumes/opto_loc/Data/",
         ],
-        "/nvme/sorting/tdt/test-all-NNXr-583/",
+        "/nvme/sorting/tdt//",
     ),
 ]
 
-# Preprocessing
-prepro_analysis_name = (
-    "prepro_df"  # Must be in 'preprocessing' doc in pipeline_tdt/params/params.yml
-)
-bad_channel_ids = None  #  TODO!! eg ["NNXr-2"]. Applied to all datasets.
-artifact_frames_list = None  # Sample/frame indices. ms_before and ms_after params pulled from params.yaml. eg [10000, 110000]. Applied to all datasets. TODO if concatenating
-# Zero-out some bouts
+# Preprocessing, Must be in 'preprocessing' doc in pipeline_tdt/params/params.yml
+prepro_analysis_name = "prepro_df"
+bad_channel_ids = None
+artifact_frames_list = None
+
 hyp_paths = [
     # "/path/to/block1/hyp.csv",
     # "/path/to/block2/hyp.csv",
-]  # Hypno of each block. Paths to .csv hypnogram with 'state', 'duration', 'start_time', 'end_time' columns
-# hyp_artifactual_states = ['Art', 'A', 'Artifact', 'artifact'] # Requires hypnograms if specified
-hyp_artifactual_states = None  # Requires hypnograms if specified
+]
+
+hyp_artifactual_states = None  # hyp_artifactual_states = ['Art', 'A', 'Artifact', 'artifact'] # Requires hypnograms if specified
 
 
 # Sorting
@@ -44,9 +42,9 @@ dry_run = False
 
 # Constants
 # T_END should be a list where each value corresponds to a path in tdt_folder_paths at the same index
-STORE = "NNXr"
+STORE = ""
 NCHANS = 16
-T_END = [7200]
+T_END = []
 
 assert bad_channel_ids is None  # TODO check that works fine
 
