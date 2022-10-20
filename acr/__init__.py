@@ -1,4 +1,3 @@
-from . import subjects
 from . import (
     io,
     plots,

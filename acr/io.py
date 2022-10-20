@@ -4,13 +4,11 @@ import yaml
 import tdt
 
 import kdephys.hypno as kh
-import kdephys.pd as kpd
 from kdephys.pd.ecdata import ecdata
 import kdephys.xr as kx
 
 import kdephys.utils as ku
 from ecephys.hypnogram import DatetimeHypnogram
-import xarray as xr
 
 bands = ku.spectral.bands
 
