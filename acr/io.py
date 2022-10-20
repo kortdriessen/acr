@@ -30,18 +30,6 @@ class data_dict(dict):
         return data_dict(nd)
 
 
-def ecx(dic):
-    """Convert dictionary of xarray objects to ecxa or excd object"""
-    for key in dic.keys():
-        if type(dic[key]) == xr.DataArray:
-            dic[key] = ecxa(dic[key])
-        elif type(dic[key]) == xr.Dataset:
-            dic[key] = ecxd(dic[key])
-        else:
-            print("Not a valid type: need to be xarray DataArray or Dataset")
-    return dic
-
-
 def acr_path(sub, x):
     path = "/Volumes/opto_loc/Data/" + sub + "/" + sub + "-" + x
     return path
@@ -171,7 +159,7 @@ def dataset_to_pandas(dataset, index=["datetime", "channel"], name=None):
     return dataset
 
 
-def load_saved_dataset(si, type, data_tags=None):
+def load_saved_dataset(si, type, data_tags):
     """
     data_tage --> e.g. '-EEGr'
     type --> e.g. '-spg'
@@ -240,8 +228,8 @@ def ss_times(sub, exp, print_=False):
         dt_start = pd.to_datetime(ep.info.start_date)
 
         # This get us the datetime values of the stims for later use:
-        on_sec = pd.to_timedelta(times["stim_on"], unit="S")
-        off_sec = pd.to_timedelta(times["stim_off"], unit="S")
+        on_sec = pd.to_timedelta(times["stim_on"], unit="s")
+        off_sec = pd.to_timedelta(times["stim_off"], unit="s")
         times["stim_on_dt"] = dt_start + on_sec
         times["stim_off_dt"] = dt_start + off_sec
         return times

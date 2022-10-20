@@ -59,6 +59,7 @@ def get_rec_times(sub, exps):
         end = np.datetime64(i.stop_date)
         d = (end - start) / np.timedelta64(1, "s")
         times[exp] = [str(start.astype(str)), str(end.astype(str)), float(d)]
+        # TODO add something to correct the end times that are happening in 1969 for some reason
     return times
 
 
@@ -192,14 +193,20 @@ def prepro_lite(subject, rec, fs_target=100, t1=0, t2=0):
 
 def data_range_plot(subject):
     """Need properly configured subject_info.yml file"""
-    path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
-    with open(path) as f:
-        data = yaml.load(f, Loader=yaml.FullLoader)
+    data = load_subject_info(subject)
     starts = []
     ends = []
     for rec in data["recordings"]:
-        starts.append(np.datetime64(data["rec_times"][rec]["start"]))
-        ends.append(np.datetime64(data["rec_times"][rec]["end"]))
+        s = np.datetime64(data["rec_times"][rec]["start"])
+        e = np.datetime64(data["rec_times"][rec]["end"])
+        s_correct = s > np.datetime64("2020-01-01")
+        e_correct = e > np.datetime64("2020-01-01")
+
+        if np.logical_and(s_correct, e_correct):
+            starts.append(np.datetime64(data["rec_times"][rec]["start"]))
+            ends.append(np.datetime64(data["rec_times"][rec]["end"]))
+        else:
+            print(f"{rec} has bad start/end date")
     start = min(starts)
     end = max(ends)
     dr = pd.date_range(start=start, end=end, freq="1H")
@@ -208,7 +215,7 @@ def data_range_plot(subject):
 
     starts.sort()
     ends.sort()
-    it = cycle(range(2, 4, 1))
+    it = cycle(range(2, 7, 1))
     colors = [
         "turquoise",
         "blue",
@@ -220,6 +227,25 @@ def data_range_plot(subject):
         "lightgrey",
         "dodgerblue",
         "slategrey",
+        "turquoise",
+        "blue",
+        "lightgrey",
+        "dodgerblue",
+        "slategrey",
+        "turquoise",
+        "blue",
+        "lightgrey",
+        "dodgerblue",
+        "slategrey",
+        "turquoise",
+        "blue",
+        "lightgrey",
+        "dodgerblue",
+        "slategrey",
+        "turquoise",
+        "blue",
+        "lightgrey",
+        "dodgerblue",
     ]
     for s, e, c in zip(starts, ends, colors):
         duration = str(np.timedelta64((e - s), "h"))
@@ -228,8 +254,8 @@ def data_range_plot(subject):
         for rec in data["recordings"]:
             if s == np.datetime64(data["rec_times"][rec]["start"]):
                 y = next(it)
-                ax.text(s, y, rec, fontsize=20, color="b")
-                ax.text(s, y - 0.3, duration, fontsize=20, color="k")
+                ax.text(s, y, rec, fontsize=10, color="blue")
+                ax.text(s, y - 0.2, duration, fontsize=10, color="k")
     ax.set_ylim(1.1, 8)
     return f, ax
 
@@ -304,6 +330,12 @@ def get_wav2_on_and_off(wav2_up):
 
 
 def stim_info_to_yaml(subject, exps):
+    """
+    subject = subject name (string)
+    exps = should be the 'stim-exps' key from the params dict given to subject_info_gen
+        - Keys should be experiment names, values should be stim stores to use (Wav2, Bttn, etc.)
+    """
+
     path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
     info = load_subject_info(subject)
 
@@ -341,7 +373,7 @@ def stim_info_to_yaml(subject, exps):
 def prepro_test(subject, target=400, t1=0, t2=10, type="full"):
     try:
         if type == "full":
-            preprocess_and_save_exps(subject, target, t1, t2)
+            preprocess_and_save_exp(subject, target, t1, t2)
         elif type == "lite":
             prepro_lite(subject, target, t1, t2)
         else:
