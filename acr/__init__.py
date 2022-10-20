@@ -3,4 +3,5 @@ from . import (
     plots,
     utils,
     info_pipeline,
+    units,
 )
