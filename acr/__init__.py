@@ -1,7 +1,7 @@
+from .archive import subjects
 from . import (
     io,
     plots,
-    subjects,
     utils,
     info_pipeline,
 )
