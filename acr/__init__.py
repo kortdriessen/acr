@@ -1,4 +1,4 @@
-from .archive import subjects
+from . import subjects
 from . import (
     io,
     plots,

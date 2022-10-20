@@ -14,7 +14,7 @@ import kdephys.xr as kx
 import kdephys.utils as ku
 import kdephys.ssfm as ss
 
-import acr.archive.subjects as subs
+import acr.subjects as subs
 import acr
 import acr.utils as acu
 import plotly.express as px
