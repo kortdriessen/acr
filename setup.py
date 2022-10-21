@@ -8,4 +8,6 @@ setup(name='acr',
       author_email='driessen2@wisc.edu',
       license='MIT',
       packages=['acr'],
+      install_requires=['streamlit', 'plotly'],
+      dependency_links=['https://github.com/kortdriessen/kdephys.git'],
       zip_safe=False)
