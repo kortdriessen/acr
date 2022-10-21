@@ -1,4 +1,0 @@
-kdephys@ git+https://github.com/kortdriessen/kdephys.git
-openpyxl
-plotly
-streamlit
