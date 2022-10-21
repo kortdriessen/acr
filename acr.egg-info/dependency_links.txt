@@ -1,0 +1,1 @@
+https://github.com/kortdriessen/kdephys/repo/tarball/main#egg=kdephys-0.1
