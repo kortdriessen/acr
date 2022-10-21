@@ -7,5 +7,5 @@ setup(name='acr',
       author='Kort Driessen',
       author_email='driessen2@wisc.edu',
       license='MIT',
-      packages=['funniest'],
+      packages=['acr'],
       zip_safe=False)
