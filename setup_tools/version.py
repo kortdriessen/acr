@@ -51,7 +51,6 @@ INSTALL_REQUIRES = [
     "plotly",
     "streamlit",
     "openpyxl",
-    "kdephys @ git+https://github.com/kortdriessen/kdephys.git",
 ]
 
 PYTHON_REQUIRES = ">=3.8, <3.11"
