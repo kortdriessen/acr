@@ -9,6 +9,10 @@ import kdephys.xr as kx
 
 import kdephys.utils as ku
 from ecephys.hypnogram import DatetimeHypnogram
+import numpy as np
+import acr.info_pipeline as aip
+import os
+import xarray as xr
 
 bands = ku.spectral.bands
 
@@ -108,7 +112,7 @@ def _load_hypno(subject, condition, start_time):
         return None
 
 
-def load_hypno(info, data, data_tag):
+def load_hypno_dep(info, data, data_tag):
     """
     info --> subject info dictionary
     data --> data dictionary
@@ -307,3 +311,92 @@ def save_dataset(data, si, type="-bp"):
         data[key].to_parquet(save_path + key + type + ".parquet", version="2.6")
         print(f"{key} saved")
     return None
+
+
+# -------------- New Hypnogram Functions ------------------#
+def check_for_hypnos(subject, recording):
+    hypno_file = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/acr-hypno-paths.yaml"
+    with open(hypno_file, "r") as f:
+        hypno_info = yaml.load(f, Loader=yaml.FullLoader)
+    if recording in hypno_info[subject]:
+        return True
+    else:
+        return False
+
+
+def update_hypno_yaml(subject):
+    hypno_root = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/hypnograms/"
+    info = aip.load_subject_info(subject)
+    recs = info["recordings"]
+    hypno_file = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/acr-hypno-paths.yaml"
+    with open(hypno_file, "r") as f:
+        hypno_info = yaml.load(f, Loader=yaml.FullLoader)
+    if not type(hypno_info[subject]) == dict:
+        hypno_info[subject] = {}
+        hypno_info[subject]["hypno-root"] = hypno_root
+    if not hypno_info[subject]["hypno-root"] == hypno_root:
+        hypno_info[subject]["hypno-root"] = hypno_root
+
+    for rec in recs:
+        rec_hypnos = []
+        for f in os.listdir(hypno_root):
+            if f"{rec}_chunk" in f:
+                rec_hypnos.append(f)
+        if len(rec_hypnos) == 0:
+            continue
+        rec_hypnos = sorted(rec_hypnos)
+        hypno_info[subject][rec] = rec_hypnos
+    with open(hypno_file, "w") as f:
+        yaml.dump(hypno_info, f)
+
+
+def load_hypno(subject, recording):
+    update_hypno_yaml(subject)
+    hypno_file = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/acr-hypno-paths.yaml"
+    hypno_root = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/hypnograms/"
+    hypno_info = yaml.load(open(hypno_file, "r"), Loader=yaml.FullLoader)
+    hypno_paths = hypno_info[subject][recording]
+    hypno_paths = [f"{hypno_root}{hp}" for hp in hypno_paths]
+    sub_info = aip.load_subject_info(subject)
+    rec_start = np.datetime64(sub_info["rec_times"][recording]["start"])
+
+    all_hypnos = []
+    for hp in hypno_paths:
+        if "chunk1" in str(hp):
+            config_path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/config-files/{subject}_sleepscore-config_{recording}-chunk1.yml"
+            config = yaml.load(open(config_path, "r"), Loader=yaml.FullLoader)
+            start = config["tStart"]
+            hypno_start = pd.to_timedelta(start, unit="s")
+            start_time = np.datetime64(rec_start + hypno_start)
+            h = kh.load_hypno_file(hp, start_time)
+            all_hypnos.append(h)
+            end = h.end_time.max()
+        else:
+            h = kh.load_hypno_file(hp, end)
+            all_hypnos.append(h)
+            end = h.end_time.max()
+    hypno = pd.concat(all_hypnos)
+    return DatetimeHypnogram(hypno)
+
+
+# -------------- New Loading Functions ------------------#
+def load_xr_exp(subject, recordings, stores=["NNXo", "NNXr"]):
+    data = {}
+    concat_data = {}
+    for store in stores:
+        for recording in recordings:
+            path = f"/Volumes/opto_loc/Data/{subject}/{recording}-{store}.nc"
+            data[f"{recording}-{store}"] = xr.open_dataarray(path)
+        keys = data.keys()
+        to_concat = [data[key] for key in keys]
+        concat_data[f"{store}"] = xr.concat(to_concat, dim="datetime")
+    return concat_data
+
+
+def load_xr(subject, recordings, stores=["NNXo", "NNXr"], channels=[2, 15]):
+    data = {}
+    for store in stores:
+        for recording in recordings:
+            path = f"/Volumes/opto_loc/Data/{subject}/{recording}-{store}.nc"
+            data[f"{recording}-{store}"] = xr.open_dataarray(path).sel(channel=channels)
+    return data

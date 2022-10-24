@@ -24,11 +24,11 @@ def load_subject_info(subject):
     return data
 
 
-def get_all_tank_keys(root):
+def get_all_tank_keys(root, sub):
     tanks = []
     for f in os.listdir(root):
         full_path = os.path.join(root, f)
-        if os.path.isdir(full_path):
+        if np.logical_and(os.path.isdir(full_path), sub in f):
             full_path = Path(full_path)
             tanks.append(full_path)
     tank_keys = []
@@ -41,7 +41,71 @@ def get_all_tank_keys(root):
     return tank_keys
 
 
-def get_rec_times(sub, exps):
+def get_time_full_load(path, store):
+    data = tdt.read_block(path, evtype=["streams"], channel=[1], store=store)
+    start = np.datetime64(data.info.start_date)
+    num_samples = len(data.streams[store].data)
+    fs = data.streams[store].fs
+    total_time = float(num_samples / fs)
+    end = start + pd.Timedelta(total_time, unit="s")
+    times = {}
+    times["start"] = str(start)
+    times["duration"] = total_time
+    times["end"] = str(end)
+    return times
+
+
+def time_sanity_check(time):
+    return time > np.datetime64("2018-01-01")
+
+
+def get_rec_times(sub, exps, time_stores=["NNXo", "NNXr"], backup_store=["EMGr"]):
+    """Gets durations, starts, and ends of recording times for set of experiments.
+
+    Args:
+        sub (str) : subject name
+        exps (list): experiment names
+        time_stores (list, optional): stores to use to calculate start and end times. Defaults to ['NNXo', 'NNXr'].
+
+    Returns:
+        times: dictionary, keys are experiment names,
+    """
+    times = {}
+    for exp in exps:
+        p = acr.io.acr_path(sub, exp)
+        d = tdt.read_block(p, t1=0, t2=1, evtype=["streams"])
+        streams = list(d.streams.keys())
+        i = d.info
+        start = np.datetime64(i.start_date)
+        end = np.datetime64(i.stop_date)
+        block_duration = float((end - start) / np.timedelta64(1, "s"))
+        new_t1 = int(block_duration - 30)
+
+        if not time_sanity_check(end):
+            times[exp] = get_time_full_load(p, backup_store[0])
+            continue
+
+        times[exp] = {}
+        times[exp]["start"] = str(start)
+
+        if all([s in streams for s in time_stores]):
+            time_stores = time_stores
+        else:
+            time_stores = backup_store
+        data = tdt.read_block(p, store=time_stores, channel=[1], t1=new_t1, t2=0)
+
+        for ts in time_stores:
+            num_samples = len(data.streams[ts].data)
+            fs = data.streams[ts].fs
+            samples_before = new_t1 * fs
+            total_samples = int(np.ceil(num_samples + samples_before))
+            total_time = float(total_samples / fs)
+            times[exp][ts + "-duration"] = total_time
+            times[exp][ts + "-end"] = str(start + pd.Timedelta(total_time, unit="s"))
+    return times
+
+
+def get_rec_times_deprecated(sub, exps):
     times = {}
     for exp in exps:
         p = acr.io.acr_path(sub, exp)
@@ -55,14 +119,52 @@ def get_rec_times(sub, exps):
     return times
 
 
+def rec_time_comparitor(subject):
+    """
+    Looks the rec_times field of the subject_info file, and where there are competing ends or competing durations
+    (because the time_stores had a different number of samples),
+    it chooses the shortest of each and assigns that to the general 'end' and 'duration' fields.
+
+    Args:
+        subject (str): subject name
+
+    """
+    path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
+    with open(path, "r") as f:
+        info = yaml.safe_load(f)
+    recs = info["recordings"]
+    for rec in recs:
+        durations = []
+        ends = []
+        keys = list(info["rec_times"][rec].keys())
+        for key in keys:
+            if "-duration" in key:
+                durations.append(info["rec_times"][rec][key])
+            if "-end" in key:
+                ends.append(info["rec_times"][rec][key])
+        if np.logical_and(len(durations) == 1, len(ends) == 1):
+            info["rec_times"][rec]["duration"] = durations[0]
+            info["rec_times"][rec]["end"] = ends[0]
+        if np.logical_and(len(durations) > 1, len(ends) > 1):
+            info["rec_times"][rec]["duration"] = min(durations)
+            end_dts = [np.datetime64(end) for end in ends]
+            info["rec_times"][rec]["end"] = str(min(end_dts))
+        else:
+            continue
+
+    with open(path, "w") as f:
+        yaml.dump(info, f)
+
+
 def subject_info_gen(params):
     """Params is a dictionary with the following keys:
     subject: str
     raw_stores: list of important data stores, to be used in preprocessing of important recordings (all channels from all raw stores)
-    lite-stores: list of less important data stores, to heavily downsample and save only a subset of channels
+    lite_stores: list of less important data stores, to heavily downsample and save only a subset of channels
     channels: a dictionary whose keys are values from stores, and values are the channels to use for each store
     preprocess-list: list of important recordings that need to be downsampled/processed. Should be a subset of all available recordings
     stim-exps: dictionary where the keys are stim experiments, and the values are stores to get the onsets/offsets from (e.g. 'Wav2' or 'Pu1_')
+    time_stores: list of stores to use to calculate start and end times. Defaults to ['NNXo', 'NNXr'].
     """
 
     subject = params["subject"]
@@ -70,19 +172,21 @@ def subject_info_gen(params):
     ds_list = params["preprocess-list"]
     path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
     root = f"/Volumes/opto_loc/Data/{subject}/"
-    recordings = get_all_tank_keys(root)
+    recordings = get_all_tank_keys(root, subject)
 
     with open(path) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
     data = {}
     data["subject"] = subject
-    times = get_rec_times(subject, recordings)
-    data["rec_times"] = {}
-    for rec in recordings:
-        data["rec_times"][rec] = {}
-        data["rec_times"][rec]["start"] = times[rec][0]
-        data["rec_times"][rec]["end"] = times[rec][1]
-        data["rec_times"][rec]["duration"] = times[rec][2]
+    times = get_rec_times(
+        subject,
+        recordings,
+        time_stores=params["time_stores"],
+        backup_store=[params["lite_stores"][0]],
+    )
+
+    data["rec_times"] = times
+
     data["channels"] = channels
     data["paths"] = acr.io.get_acr_paths(subject, recordings)
     data["raw_stores"] = params["raw_stores"]
