@@ -4,4 +4,5 @@ from . import (
     utils,
     info_pipeline,
     units,
+    hypnogram_utils,
 )

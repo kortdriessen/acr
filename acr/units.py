@@ -5,6 +5,14 @@ import acr.info_pipeline as aip
 import kdephys.hypno as kh
 import kdephys.units as ku
 
+import pandas as pd
+import pandas_flavor as pf
+
+
+@pf.register_dataframe_method
+def xnote(self, notes=["noisy", "bw"]):
+    return self.loc[~self.note.str.contains("|".join(notes))]
+
 
 def sorting_path(subject, sort_id, analysis_name="ks2_5_nblocks=1_8s-batches"):
     return f"/Volumes/opto_loc/Data/{subject}/sorting_data/{sort_id}/{analysis_name}/"
@@ -14,8 +22,11 @@ def info_to_spike_df(spike_df, info, sort_id):
     for cluster_id in info.cluster_id.values:
         group = info[info.cluster_id == cluster_id].group.values[0]
         note = info[info.cluster_id == cluster_id].note.values[0]
+        channel = info[info.cluster_id == cluster_id].ch.values[0]
         spike_df.loc[spike_df["cluster_id"] == cluster_id, "group"] = group
         spike_df.loc[spike_df["cluster_id"] == cluster_id, "note"] = note
+        spike_df.loc[spike_df["cluster_id"] == cluster_id, "channel"] = channel
+    spike_df.note.fillna("", inplace=True)
     spike_df["sort_id"] = sort_id
     return spike_df
 
@@ -109,15 +120,24 @@ def add_hypno(spike_df, subject, recordings):
 
 
 def single_probe_spike_df(
-    subject, sort_id, analysis_name="ks2_5_nblocks=1_8s-batches", drop_noise=True
+    subject,
+    sort_id,
+    analysis_name="ks2_5_nblocks=1_8s-batches",
+    drop_noise=True,
+    stim=True,
 ):
     path = acr.units.sorting_path(subject, sort_id, analysis_name)
     sort_extractor, info = ku.io.load_sorting_extractor(path, drop_noise=drop_noise)
     spike_df = ku.io.spikeinterface_sorting_to_dataframe(sort_extractor)
     spike_df = info_to_spike_df(spike_df, info, sort_id)
     recordings, start_times, durations = get_time_info(subject, sort_id)
+    print("assigning recordings")
     spike_df = assign_recordings_to_spike_df(spike_df, recordings, durations)
+    print("assigning datetimes")
     spike_df = assign_datetimes_to_spike_df(spike_df, recordings, start_times)
-    spike_df = add_stim_info(spike_df, subject)
+    if stim:
+        print("adding stim info")
+        spike_df = add_stim_info(spike_df, subject)
+    print("adding hypno")
     spike_df = add_hypno(spike_df, subject, recordings)
     return spike_df
