@@ -8,7 +8,7 @@ from kdephys.pd.ecdata import ecdata
 import kdephys.xr as kx
 
 import kdephys.utils as ku
-from kdephys.hypnogram import DatetimeHypnogram
+from kdephys.hypno import DatetimeHypnogram
 import numpy as np
 import acr.info_pipeline as aip
 import os
