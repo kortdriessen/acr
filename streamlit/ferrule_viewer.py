@@ -6,7 +6,9 @@ import streamlit as st
 import seaborn as sns
 import os
 
-root = "/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/ferrules/"
+root = st.text_input(
+    "Choose root folder", "/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/ferrules/"
+)
 
 
 @st.cache()

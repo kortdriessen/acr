@@ -1,0 +1,58 @@
+# Set custom colors. All colors are in web style hex format.
+axes.prop_cycle: cycler('color', ['363636', '3f5cfc'])
+
+# Main Figure Properties
+figure.facecolor: FFFFFF
+figure.titlesize:   23     # size of the figure title (``Figure.suptitle()``)
+figure.titleweight: bold    # weight of the figure title
+
+
+# Main Axes Properties
+axes.facecolor: FFFFFF
+
+# Axes Title styling
+axes.titlelocation: left        # alignment of the title: {left, right, center}
+axes.titlepad: 25               # pad between axes and title in points
+axes.titlesize: 10              # font size of the axes title
+axes.titleweight: normal          # font weight of title
+
+# Grid Properties
+axes.grid: True                 # display grid or not
+axes.grid.axis: y               # which axis the grid should apply to          
+grid.linewidth: 1               # in points
+grid.color: 6E6E6E              # grid color
+grid.linestyle: dashed
+axes.axisbelow: True            # Sets axis gridlines below lines and patches.
+
+# Style spines
+axes.linewidth: 3             # Spine edge line width
+axes.spines.top: False          # Display axis spines (True or False)
+axes.spines.left: True          # We only want the left and bottom spines
+axes.spines.right: False
+axes.spines.bottom: True
+
+# Set line styling for line plots
+lines.linewidth: 2.0            # line width in points
+
+# Set spacing for figure and also DPI.
+figure.subplot.left: 0.08       # the left side of the subplots of the figure
+figure.subplot.right: 0.95      # the right side of the subplots of the figure
+figure.subplot.bottom: 0.07     # the bottom of the subplots of the figure
+figure.subplot.hspace: 0.4    # the amount of height reserved for space between subplots, expressed as a fraction of the average axis height
+
+figure.figsize: 16, 11          # figure size in inches
+figure.dpi: 150                 # figure dots per inch
+
+# Setting font sizes and spacing
+axes.labelsize: 18              # font size of the x and y labels
+xtick.labelsize: 18             # font size of the x tick labels      
+ytick.labelsize: 18             # font size of the y tick labels
+font.size: 18                   # default font size for text, given in points.
+xtick.major.pad: 8              # distance to major tick label in points  
+ytick.major.pad: 12
+
+# Remove major and minor ticks except for on the x-axis.
+xtick.major.size: 8             # major tick size in points
+xtick.minor.size: 0             # minor tick size in points
+ytick.major.size: 0
+ytick.minor.size: 0

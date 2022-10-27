@@ -53,7 +53,7 @@ def get_hypno_times(subject):
             for i in i:
                 assert (
                     e[i] == s[i + 1]
-                ), f"End of chunk-{i} does not match start of chunk-{i+1} in {rec}!!"
+                ), f"End of chunk-{i+1} does not match start of chunk-{i+2} in {rec}!!"
     return hyp_info
 
 
@@ -230,6 +230,7 @@ if "Check Available Config Files" in to_do:
 if "Generate Config Files" in to_do:
     st.markdown(f"## Generate a Config File for {subject}")
     subject = subject
+    location = st.radio("Data Location", ["opto_loc", "archive"])
     chunks = st.number_input("How many chunks?", min_value=1, max_value=100, value=2)
     chunk_length = st.number_input(
         "Choose chunk length (s)", min_value=1, max_value=14400, value=7200
@@ -255,7 +256,7 @@ if "Generate Config Files" in to_do:
         default=["EMGr-1", "EEG_-1", "EEG_-2", "LFP_-2", "LFP_-10"],
     )
     if st.button("Generate Config File"):
-        acr.utils.gen_config(
-            subject, chunks, chunk_length, start_at, recording, channels
+        acr.hypnogram_utils.gen_config(
+            subject, chunks, chunk_length, start_at, recording, channels, location
         )
         st.write("Config file generated!")
