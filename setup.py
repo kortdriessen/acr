@@ -9,6 +9,6 @@ setup(
     author_email="driessen2@wisc.edu",
     license="MIT",
     packages=["acr"],
-    install_requires=["streamlit", "plotly", "openpyxl"],  # needs kdephys + ecephys
+    install_requires=["streamlit", "plotly", "openpyxl"],  # needs kdephys
     zip_safe=False,
 )

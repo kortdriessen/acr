@@ -1,4 +1,3 @@
-import ecephys.units as eu
 import streamlit as st
 import xarray as xr
 import numpy as np
