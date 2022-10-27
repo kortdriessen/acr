@@ -13,6 +13,44 @@ import acr
 import acr.info_pipeline as aip
 
 
+def gen_config(
+    subject="",
+    chunks=6,
+    chunk_length=7200,
+    start_from=0,
+    exp="",
+    chans=["EMGr-1", "EEG_-1", "EEG_-2", "LFP_-2", "LFP_-6", "LFP_-10", "LFP_-14"],
+    location="opto_loc",
+):
+    template_name = "ACR_X_sleepscore-config_experiment-chunk.yml"
+    config_directory = (
+        f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/" + subject + "/config-files/"
+    )
+    template_path = config_directory + template_name
+    if location == "opto_loc":
+        data_path = f"L:\Data\{subject}\{subject}-{exp}"
+    elif location == "archive":
+        data_path = f"A:\Data\acr_archive\{subject}\{subject}-{exp}"
+    for chunk in range(1, chunks + 1):
+        # First load the template file
+        with open(template_path) as f:
+            data = yaml.load(f, Loader=yaml.FullLoader)
+        # set the binPath
+        data["datasets"][0]["binPath"] = data_path
+        # Set the channels
+        data["datasets"][0]["chanList"] = chans
+        # Set the times
+        tend = (chunk * chunk_length) + start_from
+        data["tStart"] = tend - chunk_length
+        data["tEnd"] = tend
+        # Save the file with a new name based on the actual subject, experiment, and chunk
+        config_path = (
+            config_directory + f"{subject}_sleepscore-config_{exp}-chunk{chunk}.yml"
+        )
+        with open(config_path, "w") as f:
+            yaml.dump(data, f)
+
+
 def get_hypno_times(subject):
     info = aip.load_subject_info(subject)
     root = Path(f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/hypnograms/")
@@ -191,4 +229,30 @@ def update_hypno_info(subject, kd=False, overwrite=False):
         if_sheet_exists="replace",
     ) as writer:
         df_to_save.to_excel(writer, sheet_name=subject, index=False)
+    return
+
+
+def change_config_path_to_archive(path_to_config):
+    cfg = yaml.load(open(path_to_config, "r"), Loader=yaml.FullLoader)
+    current_path = cfg["datasets"][0]["binPath"]
+    if "L:\\Data" in current_path:
+        if "ACR_X-EXPERIMENT" in current_path:
+            print("Skipping template config file")
+            return
+        else:
+            new_path = current_path.replace("L:\\Data", "A:\\Data\\acr_archive")
+            cfg["datasets"][0]["binPath"] = new_path
+            with open(path_to_config, "w") as f:
+                yaml.dump(cfg, f)
+            print(f"Changed {path_to_config} to {new_path}")
+            return
+    else:
+        print(f"No change to {path_to_config}")
+        return
+
+
+def all_configs_to_archive(subject):
+    root = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/config-files/"
+    for f in Path(root).glob("*.yml"):
+        change_config_path_to_archive(f)
     return

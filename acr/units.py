@@ -6,12 +6,38 @@ import kdephys.hypno as kh
 import kdephys.units as ku
 
 import pandas as pd
-import pandas_flavor as pf
+import os
 
 
-@pf.register_dataframe_method
-def xnote(self, notes=["noisy", "bw"]):
-    return self.loc[~self.note.str.contains("|".join(notes))]
+def save_spike_df(subject, spike_df):
+    sort_id = spike_df.sort_id[0]
+    path = f"/Volumes/opto_loc/Data/{subject}/sorting_data/spike_dataframes/{sort_id}.parquet"
+    spike_df.to_parquet(path, version="2.6")
+
+
+def load_spike_dfs(subject, sort_id=None):
+    """
+    Load sorted spike dataframes
+    if sort_id is specified, only load that one
+    if sort_id is not specified, load all in sorting_data/spike_dataframes folder
+
+    Args:
+        subject (str): subject name
+        sort_id (optional): specific sort_id to load. Defaults to None.
+
+    Returns:
+        spikes_df: spike dataframe or dictionary of spike dataframes, depending on sort_id
+    """
+    path = f"/Volumes/opto_loc/Data/{subject}/sorting_data/spike_dataframes/"
+    if sort_id:
+        key = sort_id + ".parquet"
+        spike_dfs = pd.read_parquet(path + key)
+    else:
+        spike_dfs = {}
+        for f in os.listdir(path):
+            sort_id = f.split(".")[0]
+            spike_dfs[sort_id] = pd.read_parquet(path + f)
+    return spike_dfs
 
 
 def sorting_path(subject, sort_id, analysis_name="ks2_5_nblocks=1_8s-batches"):

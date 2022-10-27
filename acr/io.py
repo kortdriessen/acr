@@ -313,6 +313,40 @@ def save_dataset(data, si, type="-bp"):
     return None
 
 
+def save_bandpower_data(subject, dataset):
+    """save a dictionary of xarray bandpower datasets to netcdf files
+
+    Args:
+        subject (str): subject name
+        dataset (_type_): dictionary, where keys will be used as key-type for saving
+    Returns:
+
+    """
+    root = f"/Volumes/opto_loc/Data/{subject}/bandpower_data/"
+    for key in dataset.keys():
+        save_key = f"{key}.nc"
+        dataset[key].to_netcdf(root + save_key)
+        print(f"{key} saved")
+
+
+def load_bandpower_data(subject):
+    """Returns a dictionary with every bandpower set in the subject's bandpower_data folder
+
+    Args:
+        subject (str): subject name
+
+    Returns:
+        bp_dataset: dictionary of xarray datasets, consisting of all bandpower sets in the subject's bandpower_data folder
+    """
+    path = f"/Volumes/opto_loc/Data/{subject}/bandpower_data/"
+    bp_dataset = {}
+    for file in os.listdir(path):
+        full_path = path + file
+        key = file.split(".")[0]
+        bp_dataset[key] = xr.open_dataset(full_path)
+    return bp_dataset
+
+
 # -------------- New Hypnogram Functions ------------------#
 def check_for_hypnos(subject, recording):
     hypno_file = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/acr-hypno-paths.yaml"
@@ -393,10 +427,20 @@ def load_xr_exp(subject, recordings, stores=["NNXo", "NNXr"]):
     return concat_data
 
 
-def load_xr(subject, recordings, stores=["NNXo", "NNXr"], channels=[2, 15]):
+def load_xr(
+    subject, recordings, stores=["NNXo", "NNXr"], channels=None, add_rec_coord=False
+):
     data = {}
     for store in stores:
         for recording in recordings:
             path = f"/Volumes/opto_loc/Data/{subject}/{recording}-{store}.nc"
-            data[f"{recording}-{store}"] = xr.open_dataarray(path).sel(channel=channels)
+            data[f"{recording}-{store}"] = (
+                xr.open_dataarray(path).sel(channel=channels)
+                if channels
+                else xr.open_dataarray(path)
+            )
+            if add_rec_coord:
+                data[f"{recording}-{store}"] = data[
+                    f"{recording}-{store}"
+                ].assign_coords(recording=recording)
     return data

@@ -75,6 +75,7 @@ def get_rec_times(sub, exps, time_stores=["NNXo", "NNXr"], backup_store=["EMGr"]
         p = acr.io.acr_path(sub, exp)
         d = tdt.read_block(p, t1=0, t2=1, evtype=["streams"])
         streams = list(d.streams.keys())
+        print(f"streams for {exp} are {streams}")
         i = d.info
         start = np.datetime64(i.start_date)
         end = np.datetime64(i.stop_date)
@@ -89,12 +90,13 @@ def get_rec_times(sub, exps, time_stores=["NNXo", "NNXr"], backup_store=["EMGr"]
         times[exp]["start"] = str(start)
 
         if all([s in streams for s in time_stores]):
-            time_stores = time_stores
+            time_stores_to_use = time_stores
         else:
-            time_stores = backup_store
-        data = tdt.read_block(p, store=time_stores, channel=[1], t1=new_t1, t2=0)
+            time_stores_to_use = backup_store
+        print(f"using {time_stores_to_use} to get end times for {exp}")
+        data = tdt.read_block(p, store=time_stores_to_use, channel=[1], t1=new_t1, t2=0)
 
-        for ts in time_stores:
+        for ts in time_stores_to_use:
             num_samples = len(data.streams[ts].data)
             fs = data.streams[ts].fs
             samples_before = new_t1 * fs

@@ -1,0 +1,2 @@
+BEFORE NEXT PREPROCESSING:
+- Assign recording coordinate to all xarray raw datasets??
