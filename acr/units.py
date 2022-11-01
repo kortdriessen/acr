@@ -2,18 +2,20 @@ import pandas as pd
 import numpy as np
 import acr
 import acr.info_pipeline as aip
-import kdephys.hypno as kh
+import kdephys.hypno.hypno as kh
 import kdephys.units as ku
 
 import pandas as pd
 import os
 
-
-def save_spike_df(subject, spike_df):
-    sort_id = spike_df.sort_id[0]
+def save_spike_df(subject, spike_df, sort_id):
     path = f"/Volumes/opto_loc/Data/{subject}/sorting_data/spike_dataframes/{sort_id}.parquet"
     spike_df.to_parquet(path, version="2.6")
 
+def load_and_save_spike_dfs(subject, sort_ids):
+    for si in sort_ids:
+        df = single_probe_spike_df(subject, si)
+        save_spike_df(subject, df, si)
 
 def load_spike_dfs(subject, sort_id=None):
     """
@@ -53,7 +55,8 @@ def info_to_spike_df(spike_df, info, sort_id):
         spike_df.loc[spike_df["cluster_id"] == cluster_id, "note"] = note
         spike_df.loc[spike_df["cluster_id"] == cluster_id, "channel"] = channel
     spike_df.note.fillna("", inplace=True)
-    spike_df["sort_id"] = sort_id
+    spike_df['exp'] = sort_id.split('-')[0]
+    spike_df['probe'] = sort_id.split('-')[1]
     return spike_df
 
 

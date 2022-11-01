@@ -5,7 +5,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import yaml
 
-import kdephys.hypno as kh
+import kdephys.hypno.hypno as kh
 import kdephys.plot as kp
 
 
