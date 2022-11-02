@@ -10,8 +10,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import yaml
 
-import kdephys.hypno as kh
-import kdephys.plot as kp
+import kdephys.hypno.hypno as kh
+import kdephys.plot.main as kp
 import kdephys.xr as kx
 
 import acr
