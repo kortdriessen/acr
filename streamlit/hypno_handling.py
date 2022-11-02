@@ -219,7 +219,7 @@ _to_do = [
 to_do = st.sidebar.multiselect("Choose your Hypno Magic!", _to_do)
 
 if "Check Hypnogram Coverage" in to_do:
-    st.markdown(f"## Current Hypnogram Coverage for ACR_14 Recordings")
+    st.markdown(f"## Current Hypnogram Coverage for {subject} Recordings")
     hypno_coverage(subject)
 
 if "Check Available Config Files" in to_do:
