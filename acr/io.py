@@ -63,6 +63,9 @@ def update_hypno_yaml(subject):
     hypno_file = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/acr-hypno-paths.yaml"
     with open(hypno_file, "r") as f:
         hypno_info = yaml.load(f, Loader=yaml.FullLoader)
+    if subject not in hypno_info:
+        hypno_info[subject] = {}
+        hypno_info[subject]["hypno-root"] = hypno_root
     if not type(hypno_info[subject]) == dict:
         hypno_info[subject] = {}
         hypno_info[subject]["hypno-root"] = hypno_root
