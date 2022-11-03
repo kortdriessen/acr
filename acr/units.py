@@ -55,21 +55,25 @@ def info_to_spike_df(spike_df, info, sort_id):
         spike_df.loc[spike_df["cluster_id"] == cluster_id, "note"] = note
         spike_df.loc[spike_df["cluster_id"] == cluster_id, "channel"] = channel
     spike_df.note.fillna("", inplace=True)
-    spike_df['exp'] = sort_id.split('-')[0]
-    spike_df['probe'] = sort_id.split('-')[1]
+    spike_df['exp'] = '-'.join(sort_id.split('-')[:-1])
+    spike_df['probe'] = sort_id.split('-')[-1]
     return spike_df
 
 
 def get_time_info(subject, sort_id):
     ss = pd.read_excel("/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/spikesorting.xlsx")
     ss_narrowed = ss.loc[np.logical_and(ss.subject == subject, ss.sort_id == sort_id)]
-    times = ss_narrowed.recording_end_times.values[0].split(",")
-    times = [int(t.strip()) for t in times]
-    recs = ss_narrowed.recordings.values[0].split(",")
-    recs = [r.strip() for r in recs]
+    if type( ss_narrowed.recording_end_times.values[0] ) == int:
+        times = [ss_narrowed.recording_end_times.values[0]]
+        recs = [ss_narrowed.recordings.values[0]]
+    else:
+        times = ss_narrowed.recording_end_times.values[0].split(",")
+        times = [int(t.strip()) for t in times]
+        recs = ss_narrowed.recordings.values[0].split(",")
+        recs = [r.strip() for r in recs]
     info = aip.load_subject_info(subject)
     times_new = []
-    probe = sort_id.split("-")[1]
+    probe = sort_id.split("-")[-1]
 
     assert "NNX" in probe
     starts = []

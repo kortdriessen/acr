@@ -203,12 +203,11 @@ def subject_info_gen(params):
 def preprocess_and_save_exp(subject, rec, fs_target=400, t1=0, t2=0):
     """
     Preprocesses (downsample via decimate) and saves timeseries data as xarray objects.
-    Takes a single experiment ID loads the relevant stores from raw_stores and saves that.
+    Takes a single recording ID loads the relevant stores from raw_stores and saves that.
     Channels are specified in the subject_info.yml file.
     Stores to use are defined by raw_stores in the subject_info.yml file.
     """
 
-    # Load raw data from 'preprocess-list' in subject_info.yml
     path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
     with open(path) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
@@ -427,7 +426,7 @@ def get_wav2_on_and_off(wav2_up):
     return ons, offs
 
 
-def stim_info_to_yaml(subject, exps):
+def _stim_info_to_yaml(subject, exps):
     """
     subject = subject name (string)
     exps = should be the 'stim-exps' key from the params dict given to subject_info_gen
@@ -462,6 +461,49 @@ def stim_info_to_yaml(subject, exps):
             stim_info[exp][pulse_store] = {}
             stim_info[exp][pulse_store]["onsets"] = on_str
             stim_info[exp][pulse_store]["offsets"] = off_str
+    info["stim_info"] = stim_info
+    with open(path, "w") as f:
+        yaml.dump(info, f)
+    return
+
+def stim_info_to_yaml(subject, exps):
+    """
+    subject = subject name (string)
+    exps = should be the 'stim-exps' key from the params dict given to subject_info_gen
+        - Keys should be experiment names, values should be stim stores to use (Wav2, Bttn, etc.)
+    """
+
+    path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
+    info = load_subject_info(subject)
+
+    stim_info = {}
+    for exp in exps:
+        stim_info[exp] = {}
+        if type(exps[exp]) == str:
+            _stim_info_to_yaml(subject, exps)
+            continue
+        for store in exps[exp]:
+            if store != "Wav2":
+                on, off = epoc_extractor(subject, exp, store)
+                on_list = list(on)
+                on_str = [str(x) for x in on_list]
+                off_list = list(off)
+                off_str = [str(x) for x in off_list]
+                
+                stim_info[exp][store] = {}
+                stim_info[exp][store]["onsets"] = on_str
+                stim_info[exp][store]["offsets"] = off_str
+            elif store == "Wav2":
+                wav2_up = get_wav2_up_data(subject, exp)
+                on, off = get_wav2_on_and_off(wav2_up)
+                on_list = list(on)
+                on_str = [str(x) for x in on_list]
+                off_list = list(off)
+                off_str = [str(x) for x in off_list]
+                
+                stim_info[exp][store] = {}
+                stim_info[exp][store]["onsets"] = on_str
+                stim_info[exp][store]["offsets"] = off_str
     info["stim_info"] = stim_info
     with open(path, "w") as f:
         yaml.dump(info, f)

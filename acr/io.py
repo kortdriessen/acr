@@ -132,7 +132,7 @@ def load_hypno_full_exp(subject, exp):
     recs = [x for x in list(hypno_info[subject].keys()) if exp in x]
     for rec in recs:
         h[rec] = load_hypno(subject, rec)
-    return pd.concat(h.values())
+    return DatetimeHypnogram(pd.concat(h.values()))
 
 # ---------------------------------------------------- Data + Spectral io --------------------------------------
 def load_raw_data(subject, recording, store, select=None):
