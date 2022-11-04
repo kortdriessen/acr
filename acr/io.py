@@ -135,25 +135,6 @@ def load_hypno_full_exp(subject, exp):
     return DatetimeHypnogram(pd.concat(h.values()))
 
 # ---------------------------------------------------- Data + Spectral io --------------------------------------
-def load_raw_data(subject, recording, store, select=None):
-    """loads the xr.dataarray of raw data for a single recording-store combination.
-
-    Args:
-        subject (str): subject name
-        recording (str): recording name
-        store (str): store name
-        select(dict): dictionary to pass to .sel() method of xr.dataarray, keys are dimentions, values are values to select
-
-    Returns:
-        xr.dataarray of raw data for recording-store combination
-    """
-    path = f"/Volumes/opto_loc/Data/{subject}/{recording}-{store}.nc"
-    
-    data = xr.open_dataarray(path)
-    if select:
-        data = data.sel(select)
-    return data
-
 def calc_and_save_bandpower_sets(subject, recordings, stores, window_length=4, overlap=2):
     """
     NOTE: ONLY USE THIS IF BANDPOWER SETS NOT ALREADY CALCULATED
@@ -180,6 +161,39 @@ def calc_and_save_bandpower_sets(subject, recordings, stores, window_length=4, o
             bp.to_netcdf(f'{bp_root}{recording}-{store}.nc')
     return None
 
+def load_raw_data(subject, recording, store, select=None, hypno=None):
+    """loads the xr.dataarray of raw data for a single recording-store combination.
+
+    Args:
+        subject (str): subject name
+        recording (str): recording name
+        store (str): store name
+        select(dict): dictionary to pass to .sel() method of xr.dataarray, keys are dimentions, values are values to select
+
+    Returns:
+        xr.dataarray of raw data for recording-store combination
+    """
+    path = f"/Volumes/opto_loc/Data/{subject}/{recording}-{store}.nc"
+    
+    data = xr.open_dataarray(path)
+    if select:
+        data = data.sel(select)
+    if np.logical_and(recording not in list(data.coords.keys()), store not in list(data.coords.keys())):
+        data = data.assign_coords({'recording': recording, 'store': store})
+        print(f'{recording} was missing recording and store coordinates, added them')
+    
+    if hypno:
+        h = load_hypno(subject, recording)
+        if h is not None:
+            data = kh.add_states(data, h)
+        elif h is None:
+            states = kh.no_states_array(data.datetime.values)
+            data = data.assign_coords(state=("datetime", states))
+            print(f'{recording} has no hypnogram, added no_states array dataset')
+    return data
+
+
+
 def load_bandpower_file(subject, recording, store, hypno=True, select=None):
     """loads the xr.dataset of bandpower data for a single recording-store combination.
 
@@ -196,6 +210,9 @@ def load_bandpower_file(subject, recording, store, hypno=True, select=None):
     
     path = f"/Volumes/opto_loc/Data/{subject}/bandpower_data/{recording}-{store}.nc"
     data = xr.open_dataset(path)
+    if select:
+        data = data.sel(select)
+    
     if np.logical_and(recording not in list(data.coords.keys()), store not in list(data.coords.keys())):
         data = data.assign_coords({'recording': recording, 'store': store})
         print(f'{recording} was missing recording and store coordinates, added them')
@@ -232,3 +249,27 @@ def load_concat_bandpower(subject, recordings, stores, hypno=True, select=None):
         bp_stores.append(bp_cx_store)
     bp = xr.concat(bp_stores, dim='store')
     return bp
+
+def load_concat_raw_data(subject, recordings, stores, hypno=True, select=None):
+    """loads and concatenates bandpower data for a list of recordings and stores
+
+    Args:
+        subject (str): subject name
+        recordings (list): recordings
+        stores (list): data stores to use
+        select(dict): dictionary to pass to .sel() method of concatenated xr.dataset, keys are dimentions, values are values to select
+        hypno (bool, optional): passed to load_bandpower_file, if True adds a state coordinate to the bandpower data
+    Returns:
+        concatenated xr.dataset of bandpower data for all recording-store combinations
+    """
+    
+    data_stores = []
+    for store in stores:
+        data_recs = []
+        for recording in recordings:
+            data_rec = load_raw_data(subject, recording, store, select=select)
+            data_recs.append(data_rec)
+        data_cx_store = xr.concat(data_recs, dim='datetime')
+        data_stores.append(data_cx_store)
+    data = xr.concat(data_stores, dim='store')
+    return data
