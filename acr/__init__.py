@@ -5,4 +5,5 @@ from . import (
     info_pipeline,
     units,
     hypnogram_utils,
+    stim,
 )

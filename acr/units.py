@@ -12,9 +12,9 @@ def save_spike_df(subject, spike_df, sort_id):
     path = f"/Volumes/opto_loc/Data/{subject}/sorting_data/spike_dataframes/{sort_id}.parquet"
     spike_df.to_parquet(path, version="2.6")
 
-def load_and_save_spike_dfs(subject, sort_ids):
+def load_and_save_spike_dfs(subject, sort_ids, analysis_name="ks2_5_nblocks=1_8s-batches", drop_noise=True, stim=False):
     for si in sort_ids:
-        df = single_probe_spike_df(subject, si)
+        df = single_probe_spike_df(subject, si, analysis_name=analysis_name, drop_noise=drop_noise, stim=stim)
         save_spike_df(subject, df, si)
 
 def load_spike_dfs(subject, sort_id=None):
@@ -73,9 +73,12 @@ def get_time_info(subject, sort_id):
         recs = [r.strip() for r in recs]
     info = aip.load_subject_info(subject)
     times_new = []
+    
+    # TODO fix this!!
     probe = sort_id.split("-")[-1]
-
     assert "NNX" in probe
+    
+
     starts = []
     for t, r in zip(times, recs):
         if t != 0:

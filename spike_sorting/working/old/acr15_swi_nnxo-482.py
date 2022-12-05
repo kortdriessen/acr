@@ -12,9 +12,9 @@ tdt_folder_paths_and_sorting_output_dir_list = [
     # ),
     (
         [
-            "/Volumes/opto_loc/Data/",
+            "/Volumes/opto_loc/Data/ACR_15/ACR_15-swi",
         ],
-        "/nvme/sorting/tdt//",
+        "/ssd-raid0/analysis/acr_sorting/a15-swi-482",
     ),
 ]
 
@@ -42,9 +42,9 @@ dry_run = False
 
 # Constants
 # T_END should be a list where each value corresponds to a path in tdt_folder_paths at the same index
-STORE = ""
+STORE = "NNXo"
 NCHANS = 16
-T_END = []
+T_END = [14400]
 
 assert bad_channel_ids is None  # TODO check that works fine
 

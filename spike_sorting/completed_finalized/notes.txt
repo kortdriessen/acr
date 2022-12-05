@@ -1,0 +1,1 @@
+ACR_13-laser1: lenient version worked, strict version failed... will use lenient threshold parameters for all recordings from this animal (4, 8, 2)

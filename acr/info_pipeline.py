@@ -16,6 +16,13 @@ import acr
 import os
 from itertools import cycle
 
+from importlib.machinery import SourceFileLoader
+
+def subject_params(subject):
+    path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_params.py"
+    sub_params = SourceFileLoader("sub_params", path).load_module()
+    from sub_params import params
+    return params
 
 def load_subject_info(subject):
     path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
@@ -106,21 +113,6 @@ def get_rec_times(sub, exps, time_stores=["NNXo", "NNXr"], backup_store=["EMGr"]
             times[exp][ts + "-end"] = str(start + pd.Timedelta(total_time, unit="s"))
     return times
 
-
-def get_rec_times_deprecated(sub, exps):
-    times = {}
-    for exp in exps:
-        p = acr.io.acr_path(sub, exp)
-        d = tdt.read_block(p, t1=0, t2=1, evtype=["scalars"])
-        i = d.info
-        start = np.datetime64(i.start_date)
-        end = np.datetime64(i.stop_date)
-        d = (end - start) / np.timedelta64(1, "s")
-        times[exp] = [str(start.astype(str)), str(end.astype(str)), float(d)]
-        # TODO add something to correct the end times that are happening in 1969 for some reason
-    return times
-
-
 def rec_time_comparitor(subject):
     """
     Looks the rec_times field of the subject_info file, and where there are competing ends or competing durations
@@ -158,20 +150,24 @@ def rec_time_comparitor(subject):
         yaml.dump(info, f)
 
 
-def subject_info_gen(params):
-    """Params is a dictionary with the following keys:
-    subject: str
-    raw_stores: list of important data stores, to be used in preprocessing of important recordings (all channels from all raw stores)
-    lite_stores: list of less important data stores, to heavily downsample and save only a subset of channels
-    channels: a dictionary whose keys are values from stores, and values are the channels to use for each store
-    preprocess-list: list of important recordings that need to be downsampled/processed. Should be a subset of all available recordings
-    stim-exps: dictionary where the keys are stim experiments, and the values are stores to get the onsets/offsets from (e.g. 'Wav2' or 'Pu1_')
-    time_stores: list of stores to use to calculate start and end times. Defaults to ['NNXo', 'NNXr'].
+def subject_info_gen(subject):
     """
-
-    subject = params["subject"]
-    channels = params["channels"]
-    ds_list = params["preprocess-list"]
+    This function will load a subject's params dictionary from subject_params.py, and then GENERATE the subject_info.yml file (thus wiping anything already there).
+    The params dictionary should have the following properties:
+    subject:
+        subject name
+    raw_stores: 
+        list of important data stores, to be used in preprocessing of important recordings (all channels from all raw stores)
+    lite_stores: 
+        list of less important data stores, to heavily downsample and save only a subset of channels
+    channels: 
+        a dictionary whose keys are values from stores, and values are the channels to use for each store
+    stim-exps: 
+        dictionary where the keys are stim experiments, and the values are stores to get the onsets/offsets from (e.g. 'Wav2' or 'Pu1_')
+    time_stores: 
+        list of stores to use to calculate start and end times. Defaults to ['NNXo', 'NNXr'].
+    """
+    params = subject_params(subject)
     path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
     root = f"/Volumes/opto_loc/Data/{subject}/"
     recordings = get_all_tank_keys(root, subject)
@@ -188,34 +184,91 @@ def subject_info_gen(params):
     )
 
     data["rec_times"] = times
-
-    data["channels"] = channels
+    data["channels"] = params["channels"]
     data["paths"] = acr.io.get_acr_paths(subject, recordings)
     data["raw_stores"] = params["raw_stores"]
     data["lite_stores"] = params["lite_stores"]
     data["recordings"] = recordings
-    data["preprocess-list"] = ds_list
+    
     data["stim-exps"] = params["stim-exps"]
     with open(path, "w") as f:
         yaml.dump(data, f)
+    rec_time_comparitor(subject)
+    stim_info_to_yaml(subject, params["stim-exps"])
+    return
 
-
-def preprocess_and_save_exp(subject, rec, fs_target=400, t1=0, t2=0):
+def update_subject_info(subject):
     """
-    Preprocesses (downsample via decimate) and saves timeseries data as xarray objects.
-    Takes a single recording ID loads the relevant stores from raw_stores and saves that.
+    This function will load a subject's params dictionary from subject_params.py, and then update the subject_info.yml file.
+    The params dictionary should have the following properties:
+    subject:
+        subject name
+    raw_stores: 
+        list of important data stores, to be used in preprocessing of important recordings (all channels from all raw stores)
+    lite_stores: 
+        list of less important data stores, to heavily downsample and save only a subset of channels
+    channels: 
+        a dictionary whose keys are values from stores, and values are the channels to use for each store
+    stim-exps: 
+        dictionary where the keys are stim experiments, and the values are stores to get the onsets/offsets from (e.g. 'Wav2' or 'Pu1_')
+    time_stores: 
+        list of stores to use to calculate start and end times. Defaults to ['NNXo', 'NNXr'].
+    """
+
+    params = subject_params(subject)
+    path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
+    root = f"/Volumes/opto_loc/Data/{subject}/"
+    recordings = get_all_tank_keys(root, subject)
+    with open(path) as f:
+        data = yaml.load(f, Loader=yaml.FullLoader)
+    
+    new_recs = []
+    for rec in recordings:
+        if rec not in data['recordings']:
+            new_recs.append(rec)
+    
+    times = get_rec_times(
+        subject,
+        new_recs,
+        time_stores=params["time_stores"],
+        backup_store=[params["lite_stores"][0]],
+    )
+    for time_key in list(times.keys()):
+        data['rec_times'][time_key] = times[time_key]
+    
+    paths = acr.io.get_acr_paths(subject, recordings)
+    data['paths'] = paths
+    data["raw_stores"] = params["raw_stores"]
+    data["lite_stores"] = params["lite_stores"]
+    data["subject"] = subject 
+    data["channels"] = params["channels"]
+    data["recordings"] = recordings
+    data["stim-exps"] = params["stim-exps"]
+
+    with open(path, "w") as f:
+        yaml.dump(data, f) # write the new subject_info file
+    rec_time_comparitor(subject) # assess the rec_times for all recordings
+    stim_info_to_yaml(subject, params["stim-exps"]) # add the stim_info (automatically only loads new recordings, old ones are kept)
+    return
+
+def preprocess_and_save_recording(subject, rec, fs_target=400):
+    """
+    * Requires an updated subject_info file *
+    Preprocesses (downsample via decimate) and saves a single recording as xarray object.
+    Takes a single recording ID, loads the relevant stores from raw_stores (in subject_info), and saves that.
     Channels are specified in the subject_info.yml file.
     Stores to use are defined by raw_stores in the subject_info.yml file.
     """
 
     path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
     with open(path) as f:
-        data = yaml.load(f, Loader=yaml.FullLoader)
+        info = yaml.load(f, Loader=yaml.FullLoader)
     raw_data = {}
-    path = data["paths"][rec]
-    for store in data["raw_stores"]:
+    path = info["paths"][rec]
+    t2 = info["rec_times"][rec]["duration"]
+    for store in info["raw_stores"]:
         raw_data[rec + "-" + store] = kx.io.get_data(
-            path, store, channel=data["channels"][store], t1=t1, t2=t2
+            path, store, channel=info["channels"][store], t1=0, t2=t2
         )
 
     # Decimate raw data
@@ -243,9 +296,13 @@ def preprocess_and_save_exp(subject, rec, fs_target=400, t1=0, t2=0):
 
 def prepro_lite(subject, rec, fs_target=100, t1=0, t2=0):
     """
-    Preprocess and save all experiments which were not included in preprocess-list in subject_info.yml.
+    * Requires an updated subject_info file *
+    Preprocesses (downsample via decimate) and saves a single recording as xarray object.
+    Takes a single recording ID, loads the relevant stores from lite_stores (in subject_info), and saves that.
+    Channels are specified in the subject_info.yml file.
+    Stores to use are defined by lite_stores in the subject_info.yml file.
     """
-    # Load all data that was not included in preprocess-list
+    
     path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
     with open(path) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
@@ -426,46 +483,6 @@ def get_wav2_on_and_off(wav2_up):
     return ons, offs
 
 
-def _stim_info_to_yaml(subject, exps):
-    """
-    subject = subject name (string)
-    exps = should be the 'stim-exps' key from the params dict given to subject_info_gen
-        - Keys should be experiment names, values should be stim stores to use (Wav2, Bttn, etc.)
-    """
-
-    path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
-    info = load_subject_info(subject)
-
-    stim_info = {}
-    for exp in exps:
-        if exps[exp] != "Wav2":
-            pulse_store = exps[exp]
-            on, off = epoc_extractor(subject, exp, exps[exp])
-            on_list = list(on)
-            on_str = [str(x) for x in on_list]
-            off_list = list(off)
-            off_str = [str(x) for x in off_list]
-            stim_info[exp] = {}
-            stim_info[exp][pulse_store] = {}
-            stim_info[exp][pulse_store]["onsets"] = on_str
-            stim_info[exp][pulse_store]["offsets"] = off_str
-        elif exps[exp] == "Wav2":
-            pulse_store = exps[exp]
-            wav2_up = get_wav2_up_data(subject, exp)
-            on, off = get_wav2_on_and_off(wav2_up)
-            on_list = list(on)
-            on_str = [str(x) for x in on_list]
-            off_list = list(off)
-            off_str = [str(x) for x in off_list]
-            stim_info[exp] = {}
-            stim_info[exp][pulse_store] = {}
-            stim_info[exp][pulse_store]["onsets"] = on_str
-            stim_info[exp][pulse_store]["offsets"] = off_str
-    info["stim_info"] = stim_info
-    with open(path, "w") as f:
-        yaml.dump(info, f)
-    return
-
 def stim_info_to_yaml(subject, exps):
     """
     subject = subject name (string)
@@ -475,45 +492,98 @@ def stim_info_to_yaml(subject, exps):
 
     path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
     info = load_subject_info(subject)
-
     stim_info = {}
+
+    if "stim_info" not in info.keys():
+        info["stim_info"] = {}
+    
     for exp in exps:
-        stim_info[exp] = {}
-        if type(exps[exp]) == str:
-            _stim_info_to_yaml(subject, exps)
+        exp = str(exp)
+        if exp in info['stim_info']: # check if recording has already been processed. 
+            print(f'stim info for {exp} already processed. Skipping...')
             continue
+        stim_info[exp] = {}
+        assert type(exps[exp]) == list, f"stores for each experiment must be a list of stores to use. {exp} is not a list."
         for store in exps[exp]:
-            if store != "Wav2":
-                on, off = epoc_extractor(subject, exp, store)
-                on_list = list(on)
-                on_str = [str(x) for x in on_list]
-                off_list = list(off)
-                off_str = [str(x) for x in off_list]
-                
-                stim_info[exp][store] = {}
-                stim_info[exp][store]["onsets"] = on_str
-                stim_info[exp][store]["offsets"] = off_str
-            elif store == "Wav2":
+            if store == "Wav2":
                 wav2_up = get_wav2_up_data(subject, exp)
                 on, off = get_wav2_on_and_off(wav2_up)
                 on_list = list(on)
                 on_str = [str(x) for x in on_list]
                 off_list = list(off)
                 off_str = [str(x) for x in off_list]
-                
                 stim_info[exp][store] = {}
                 stim_info[exp][store]["onsets"] = on_str
                 stim_info[exp][store]["offsets"] = off_str
-    info["stim_info"] = stim_info
+            elif store == 'Wavt':
+                wavt_up = get_wavt_up_data(subject, exp)
+                on, off = get_wavt_on_and_off(wavt_up)
+                on_list = list(on)
+                on_str = [str(x) for x in on_list]
+                off_list = list(off)
+                off_str = [str(x) for x in off_list]
+                stim_info[exp][store] = {}
+                stim_info[exp][store]["onsets"] = on_str
+                stim_info[exp][store]["offsets"] = off_str
+            elif store in ['Bttn', 'Pu1_']:
+                on, off = epoc_extractor(subject, exp, store)
+                on_list = list(on)
+                on_str = [str(x) for x in on_list]
+                off_list = list(off)
+                off_str = [str(x) for x in off_list]
+                stim_info[exp][store] = {}
+                stim_info[exp][store]["onsets"] = on_str
+                stim_info[exp][store]["offsets"] = off_str
+    
+    if 'stim_info' not in info: # make sure stim_info sectio of subject_info.yml exists
+        info['stim_info'] = {}
+    for exp in stim_info:
+        info["stim_info"][exp] = stim_info[exp] # add the new stim info to subject_info.yml
     with open(path, "w") as f:
-        yaml.dump(info, f)
+        yaml.dump(info, f) # save subject_info.yml
     return
 
+
+def get_wavt_up_data(subject, exp, t1=0, t2=0, store="Wavt", thresh=1e6):
+    """returns the times where Wavt store is greater than 1.5, which should equal the laser on times"""
+    info = load_subject_info(subject)
+    w = kx.io.get_data(info["paths"][exp], store, t1=t1, t2=t2)
+    w_on = w.where(w > thresh, drop=True)
+
+    return w_on
+
+
+def get_wavt_on_and_off(wavt_up):
+    times = wavt_up.datetime.values
+    ons = []
+    offs = []
+    time_int = times[1] - times[0]
+    for i in range(len(times)):
+        if i == 0:
+            ons.append(times[i])
+        elif i == (len(times) - 1):
+            offs.append(times[i])
+        else:
+            interval = times[i] - times[i - 1]
+            if interval > (time_int * 5):
+                ons.append(times[i])
+                offs.append(times[i - 1])
+    f, ax = plt.subplots(figsize=(15, 5))
+    ax.plot(wavt_up.datetime, wavt_up.data)
+
+    dt_range = pd.DatetimeIndex([ons[0], offs[-1]])
+    ax.plot(dt_range, [0, 0], "k")
+    for on, off in zip(ons, offs):
+        ax.axvline(on, color="green")
+        ax.axvline(off, color="red")
+        ax.axvspan(on, off, color="blue", alpha=0.2)
+    ax.set_xlim(ons[0] - pd.Timedelta(1, "s"), offs[-1] + pd.Timedelta(1, "s"))
+    return ons, offs
 
 def prepro_test(subject, target=400, t1=0, t2=10, type="full"):
     try:
         if type == "full":
-            preprocess_and_save_exp(subject, target, t1, t2)
+            preprocess_and_save_recording(subject, target, t1, t2)
         elif type == "lite":
             prepro_lite(subject, target, t1, t2)
         else:
@@ -523,3 +593,14 @@ def prepro_test(subject, target=400, t1=0, t2=10, type="full"):
     except:
         print(f"prepro_test failed for {subject}")
         return False
+
+
+def current_processed_recordings(subject):
+    processed = []
+    root = f"/Volumes/opto_loc/Data/{subject}/"
+    for f in os.listdir(root):
+        if f.endswith(".nc"):
+            name = f.split('-')[:-1]
+            rec_name = '-'.join(name)
+            processed.append(rec_name)
+    return np.unique(processed)

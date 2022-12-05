@@ -271,5 +271,7 @@ def load_concat_raw_data(subject, recordings, stores, hypno=True, select=None):
             data_recs.append(data_rec)
         data_cx_store = xr.concat(data_recs, dim='datetime')
         data_stores.append(data_cx_store)
+    
     data = xr.concat(data_stores, dim='store')
+    # occasionally because of mismatching total lengths between recordings, the time dimens
     return data
