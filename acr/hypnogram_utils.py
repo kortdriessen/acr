@@ -17,21 +17,40 @@ def gen_config(
     subject="",
     chunks=6,
     chunk_length=7200,
-    start_from=0,
+    start_from=1,
     exp="",
     chans=["EMGr-1", "EEG_-1", "EEG_-2", "LFP_-2", "LFP_-6", "LFP_-10", "LFP_-14"],
-    location="opto_loc",
 ):
-    template_name = "ACR_X_sleepscore-config_experiment-chunk.yml"
+    """Generates config files for sleep scoring, saves them in config-files directory of subject's materials folder. 
+    
+    Requires:
+        - subject_info.yml needs to be updated
+        - template config file needs to be in config-files directory
+        
+    Args:
+        subject (str, optional): subject name. Defaults to "".
+        chunks (int, optional): number of chunks to generate. Defaults to 6.
+        chunk_length (int, optional): length in seconds of each chunk. Defaults to 7200.
+        start_from (int, optional): the chunk number (not time) to start from. Requires preceding chunks already in place. Defaults to 1.
+        exp (str, optional): recording name. Defaults to "".
+        chans (list, optional): channels to be used for scoring in form of store-channel. Defaults to ["EMGr-1", "EEG_-1", "EEG_-2", "LFP_-2", "LFP_-6", "LFP_-10", "LFP_-14"].
+    """
     config_directory = (
         f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/" + subject + "/config-files/"
     )
+    template_name = "ACR_X_sleepscore-config_experiment-chunk.yml"
     template_path = config_directory + template_name
-    if location == "opto_loc":
-        data_path = f"L:\Data\{subject}\{subject}-{exp}"
-    elif location == "archive":
-        data_path = f"A:\Data\acr_archive\{subject}\{subject}-{exp}"
-    for chunk in range(1, chunks + 1):
+    data_path = f"A:\\Data\\acr_archive\\{subject}\\{subject}-{exp}"
+    if start_from == 1:
+        start_time = 0
+    elif start_from == 0:
+        print("Start from 0 is not allowed. Please use 1 instead.")
+        return
+    else:
+        cfg_info = get_config_info(subject)
+        start_time = cfg_info[exp]["ends"][start_from - 2]
+        print("the start time being used is: ", start_time)
+    for rel_num, chunk in enumerate(range(start_from, start_from + chunks)):
         # First load the template file
         with open(template_path) as f:
             data = yaml.load(f, Loader=yaml.FullLoader)
@@ -40,7 +59,7 @@ def gen_config(
         # Set the channels
         data["datasets"][0]["chanList"] = chans
         # Set the times
-        tend = (chunk * chunk_length) + start_from
+        tend = ((rel_num+1) * chunk_length) + start_time
         data["tStart"] = tend - chunk_length
         data["tEnd"] = tend
         # Save the file with a new name based on the actual subject, experiment, and chunk

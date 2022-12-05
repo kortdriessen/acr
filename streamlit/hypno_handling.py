@@ -116,32 +116,35 @@ def get_config_info(subject):
             cfg_info[key]["chunk_num"] = sorted(cfg_info[key]["chunk_num"])
     return cfg_info
 
+def single_config_vis(subject, rec):
+    cfg_info = get_config_info(subject)
+    x1 = 0
+    x2 = cfg_info[rec]["ends"][-1]
+    x_axis = np.arange(x1, x2, 10)
+    f, ax = plt.subplots(figsize=(12, 3))
+    ax.plot(x_axis, np.ones(len(x_axis)), "k")
+    for i in np.arange(0, len(cfg_info[rec]["starts"])):
+        ax.axvspan(
+            cfg_info[rec]["starts"][i],
+            cfg_info[rec]["ends"][i],
+            color="green",
+            alpha=0.5,
+        )
+        ax.axvline(cfg_info[rec]["starts"][i], color="k", linestyle="--")
+        ax.axvline(cfg_info[rec]["ends"][i], color="k", linestyle="--")
+        chunk_distance = cfg_info[rec]["ends"][i] - cfg_info[rec]["starts"][i]
+        chunk_num = str(cfg_info[rec]["chunk_num"][i])
+        ax.text(cfg_info[rec]["starts"][i], 2.0, f"Chunk-{chunk_num}", fontsize=8)
+        ax.text(cfg_info[rec]["starts"][i], 1.5, f"{chunk_distance}s", fontsize=8)
+    ax.set_title(f"{rec} - CURRENTLY AVAILABLE CONFIG FILES")
+    ax.set_ylim(-3, 3)
+    st.pyplot(f)
+    return
 
 def config_visualizer(subject):
     cfg_info = get_config_info(subject)
     for key in list(cfg_info.keys()):
-        x1 = 0
-        x2 = cfg_info[key]["ends"][-1]
-        x_axis = np.arange(x1, x2, 10)
-        f, ax = plt.subplots(figsize=(12, 3))
-        ax.plot(x_axis, np.ones(len(x_axis)), "k")
-        for i in np.arange(0, len(cfg_info[key]["starts"])):
-            ax.axvspan(
-                cfg_info[key]["starts"][i],
-                cfg_info[key]["ends"][i],
-                color="green",
-                alpha=0.5,
-            )
-            ax.axvline(cfg_info[key]["starts"][i], color="k", linestyle="--")
-            ax.axvline(cfg_info[key]["ends"][i], color="k", linestyle="--")
-            chunk_distance = cfg_info[key]["ends"][i] - cfg_info[key]["starts"][i]
-            chunk_num = str(cfg_info[key]["chunk_num"][i])
-            ax.text(cfg_info[key]["starts"][i], 2.0, f"Chunk-{chunk_num}", fontsize=8)
-            ax.text(cfg_info[key]["starts"][i], 1.5, f"{chunk_distance}s", fontsize=8)
-        ax.set_title(key)
-        ax.set_ylim(-3, 3)
-        plt.show()
-        st.pyplot(f)
+       single_config_vis(subject, key)
     return
 
 
@@ -230,12 +233,13 @@ if "Check Available Config Files" in to_do:
 if "Generate Config Files" in to_do:
     st.markdown(f"## Generate a Config File for {subject}")
     subject = subject
-    location = st.radio("Data Location", ["opto_loc", "archive"])
+    si = acr.info_pipeline.load_subject_info(subject)
+    
     chunks = st.number_input("How many chunks?", min_value=1, max_value=100, value=2)
     chunk_length = st.number_input(
         "Choose chunk length (s)", min_value=1, max_value=14400, value=7200
     )
-    start_at = st.number_input("Start at (s)", min_value=0, max_value=None, value=0)
+    start_at = st.number_input("Start at chunk #:", min_value=1, max_value=None, value=1)
     recording = st.text_input("Enter a recording", value="")
     _channels = [
         "EMGr-1",
@@ -255,8 +259,13 @@ if "Generate Config Files" in to_do:
         _channels,
         default=["EMGr-1", "EEG_-1", "EEG_-2", "LFP_-2", "LFP_-10"],
     )
+    duration = int(si['rec_times'][recording]['duration'])
+    single_config_vis(subject, recording)
+    st.write(f"Recording duration: {duration}s")
+    st.write(f"Number of chunks given duration and chunk length: {(duration/chunk_length)}")
+
     if st.button("Generate Config File"):
         acr.hypnogram_utils.gen_config(
-            subject, chunks, chunk_length, start_at, recording, channels, location
+            subject, chunks, chunk_length, start_at, recording, channels
         )
         st.write("Config file generated!")

@@ -13,7 +13,7 @@ import acr.info_pipeline as aip
 import os
 import xarray as xr
 
-from acr.utils import materials_root, opto_loc_root
+from acr.utils import materials_root, opto_loc_root, raw_data_root
 bands = ku.spectral.bands
 
 
@@ -33,7 +33,7 @@ class data_dict(dict):
 
 
 def acr_path(sub, x):
-    return f"{opto_loc_root}{sub}/{sub}-{x}"
+    return f"{raw_data_root}{sub}/{sub}-{x}"
 
 
 def get_acr_paths(sub, xl):
