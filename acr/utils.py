@@ -4,6 +4,9 @@ import acr
 import tdt
 import numpy as np
 
+raw_data_root = "/Volumes/neuropixel_archive/Data/acr_archive/"
+materials_root = "/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/"
+opto_loc_root = "/Volumes/opto_loc/Data/"
 
 def add_time_class(df, times):
     if "control1" in df.condition[0]:

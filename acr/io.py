@@ -2,7 +2,6 @@ import pandas as pd
 from pathlib import Path
 import yaml
 import tdt
-
 import kdephys.hypno.hypno as kh
 from kdephys.pd.ecdata import ecdata
 import kdephys.xr as kx
@@ -14,6 +13,7 @@ import acr.info_pipeline as aip
 import os
 import xarray as xr
 
+from acr.utils import materials_root, opto_loc_root
 bands = ku.spectral.bands
 
 
@@ -33,8 +33,7 @@ class data_dict(dict):
 
 
 def acr_path(sub, x):
-    path = "/Volumes/opto_loc/Data/" + sub + "/" + sub + "-" + x
-    return path
+    return f"{opto_loc_root}{sub}/{sub}-{x}"
 
 
 def get_acr_paths(sub, xl):
@@ -47,7 +46,7 @@ def get_acr_paths(sub, xl):
 
 # ------------------------------------------ Hypnogram io -------------------------------------#
 def check_for_hypnos(subject, recording):
-    hypno_file = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/acr-hypno-paths.yaml"
+    hypno_file = f"{materials_root}acr-hypno-paths.yaml"
     with open(hypno_file, "r") as f:
         hypno_info = yaml.load(f, Loader=yaml.FullLoader)
     if recording in hypno_info[subject]:
@@ -57,10 +56,10 @@ def check_for_hypnos(subject, recording):
 
 
 def update_hypno_yaml(subject):
-    hypno_root = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/hypnograms/"
+    hypno_root = f"{materials_root}{subject}/hypnograms/"
     info = aip.load_subject_info(subject)
     recs = info["recordings"]
-    hypno_file = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/acr-hypno-paths.yaml"
+    hypno_file = f"{materials_root}acr-hypno-paths.yaml"
     with open(hypno_file, "r") as f:
         hypno_info = yaml.load(f, Loader=yaml.FullLoader)
     if subject not in hypno_info:
@@ -88,8 +87,8 @@ def update_hypno_yaml(subject):
 
 def load_hypno(subject, recording):
     update_hypno_yaml(subject)
-    hypno_file = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/acr-hypno-paths.yaml"
-    hypno_root = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/hypnograms/"
+    hypno_file = f"{materials_root}acr-hypno-paths.yaml"
+    hypno_root = f"{materials_root}{subject}/hypnograms/"
     hypno_info = yaml.load(open(hypno_file, "r"), Loader=yaml.FullLoader)
     if recording not in list(hypno_info[subject].keys()):
         print(f"No hypnogram for {recording}")
@@ -103,7 +102,7 @@ def load_hypno(subject, recording):
     all_hypnos = []
     for hp in hypno_paths:
         if "chunk1" in str(hp):
-            config_path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/config-files/{subject}_sleepscore-config_{recording}-chunk1.yml"
+            config_path = f"{materials_root}{subject}/config-files/{subject}_sleepscore-config_{recording}-chunk1.yml"
             config = yaml.load(open(config_path, "r"), Loader=yaml.FullLoader)
             start = config["tStart"]
             hypno_start = pd.to_timedelta(start, unit="s")
@@ -127,7 +126,7 @@ def load_hypno_full_exp(subject, exp):
     """
     h = {}
     update_hypno_yaml(subject)
-    hypno_file = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/acr-hypno-paths.yaml"
+    hypno_file = f"{materials_root}acr-hypno-paths.yaml"
     hypno_info = yaml.load(open(hypno_file, "r"), Loader=yaml.FullLoader)
     recs = [x for x in list(hypno_info[subject].keys()) if exp in x]
     for rec in recs:
@@ -152,7 +151,7 @@ def calc_and_save_bandpower_sets(subject, recordings, stores, window_length=4, o
     
     for store in stores:
         for recording in recordings:
-            data_root = f"/Volumes/opto_loc/Data/{subject}"
+            data_root = f"{opto_loc_root}{subject}"
             bp_root = f'{data_root}/bandpower_data/'
             data = load_raw_data(subject, recording, store)
             spg = kx.spectral.get_spextrogram(data, window_length=window_length, overlap=overlap)
@@ -173,7 +172,7 @@ def load_raw_data(subject, recording, store, select=None, hypno=None):
     Returns:
         xr.dataarray of raw data for recording-store combination
     """
-    path = f"/Volumes/opto_loc/Data/{subject}/{recording}-{store}.nc"
+    path = f"{opto_loc_root}{subject}/{recording}-{store}.nc"
     
     data = xr.open_dataarray(path)
     if select:
@@ -208,7 +207,7 @@ def load_bandpower_file(subject, recording, store, hypno=True, select=None):
         xr.dataset of bandpower data for recording-store combination
     """
     
-    path = f"/Volumes/opto_loc/Data/{subject}/bandpower_data/{recording}-{store}.nc"
+    path = f"{opto_loc_root}{subject}/bandpower_data/{recording}-{store}.nc"
     data = xr.open_dataset(path)
     if select:
         data = data.sel(select)

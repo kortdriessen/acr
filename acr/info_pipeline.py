@@ -6,26 +6,21 @@ import matplotlib.pyplot as plt
 import yaml
 import xarray as xr
 import yaml
-
 import kdephys.xr as kx
-
 import acr
-
-# plt.style.use(Path("acr_plots.mplstyle"))
-
 import os
 from itertools import cycle
-
 from importlib.machinery import SourceFileLoader
+from acr.utils import raw_data_root, materials_root, opto_loc_root
 
 def subject_params(subject):
-    path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_params.py"
+    path = f"{materials_root}{subject}/subject_params.py"
     sub_params = SourceFileLoader("sub_params", path).load_module()
     from sub_params import params
     return params
 
 def load_subject_info(subject):
-    path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
+    path = f"{materials_root}{subject}/subject_info.yml"
     with open(path, "r") as f:
         data = yaml.safe_load(f)
     return data
@@ -123,7 +118,7 @@ def rec_time_comparitor(subject):
         subject (str): subject name
 
     """
-    path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
+    path = f"{materials_root}{subject}/subject_info.yml"
     with open(path, "r") as f:
         info = yaml.safe_load(f)
     recs = info["recordings"]
@@ -168,8 +163,8 @@ def subject_info_gen(subject):
         list of stores to use to calculate start and end times. Defaults to ['NNXo', 'NNXr'].
     """
     params = subject_params(subject)
-    path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
-    root = f"/Volumes/opto_loc/Data/{subject}/"
+    path = f"{materials_root}{subject}/subject_info.yml"
+    root = f"{raw_data_root}{subject}/"
     recordings = get_all_tank_keys(root, subject)
 
     with open(path) as f:
@@ -216,8 +211,8 @@ def update_subject_info(subject):
     """
 
     params = subject_params(subject)
-    path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
-    root = f"/Volumes/opto_loc/Data/{subject}/"
+    path = f"{materials_root}{subject}/subject_info.yml"
+    root = f"{raw_data_root}{subject}/"
     recordings = get_all_tank_keys(root, subject)
     with open(path) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
@@ -260,7 +255,7 @@ def preprocess_and_save_recording(subject, rec, fs_target=400):
     Stores to use are defined by raw_stores in the subject_info.yml file.
     """
 
-    path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
+    path = f"{materials_root}{subject}/subject_info.yml"
     with open(path) as f:
         info = yaml.load(f, Loader=yaml.FullLoader)
     raw_data = {}
@@ -286,7 +281,7 @@ def preprocess_and_save_recording(subject, rec, fs_target=400):
             print("original fs: " + str(raw_data[key].fs))
             dec_data[key] = raw_data[key]
     # Save decimated data
-    save_root = f"/Volumes/opto_loc/Data/{subject}/"
+    save_root = f"{opto_loc_root}{subject}/"
     for key in dec_data.keys():
         print("saving: " + key)
         save_path = save_root + key + ".nc"
@@ -303,7 +298,7 @@ def prepro_lite(subject, rec, fs_target=100, t1=0, t2=0):
     Stores to use are defined by lite_stores in the subject_info.yml file.
     """
     
-    path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
+    path = f"{materials_root}{subject}/subject_info.yml"
     with open(path) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
     raw_data = {}
@@ -337,7 +332,7 @@ def prepro_lite(subject, rec, fs_target=100, t1=0, t2=0):
             dec_data[key] = raw_data[key]
 
     # Save decimated data
-    save_root = f"/Volumes/opto_loc/Data/{subject}/"
+    save_root = f"{opto_loc_root}{subject}/"
     for key in dec_data.keys():
         print("saving: " + key)
         save_path = save_root + key + ".nc"
@@ -490,7 +485,7 @@ def stim_info_to_yaml(subject, exps):
         - Keys should be experiment names, values should be stim stores to use (Wav2, Bttn, etc.)
     """
 
-    path = f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/subject_info.yml"
+    path = f"{materials_root}{subject}/subject_info.yml"
     info = load_subject_info(subject)
     stim_info = {}
 
@@ -597,7 +592,7 @@ def prepro_test(subject, target=400, t1=0, t2=10, type="full"):
 
 def current_processed_recordings(subject):
     processed = []
-    root = f"/Volumes/opto_loc/Data/{subject}/"
+    root = f"{opto_loc_root}{subject}/"
     for f in os.listdir(root):
         if f.endswith(".nc"):
             name = f.split('-')[:-1]
