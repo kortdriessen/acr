@@ -7,7 +7,6 @@ subject = 'ACR_X'
 experiment = 'exp'
 recordings = ['rec1', 'rec2']
 STORES = ["NNXr", "NNXo"]
-location = 'opto_loc'
 
 NCHANS = 16
 T_END = [0, 0]
@@ -33,10 +32,7 @@ for store in STORES:
 # Main Pipeline
 paths_to_concat = []
 for rec in recordings:
-    if location == 'opto_loc':
-        paths_to_concat.append(f'/Volumes/opto_loc/Data/{subject}/{subject}-{rec}')
-    elif location == 'archive':
-        paths_to_concat.append(f'/Volumes/neuropixel_archive/Data/acr_archive/{subject}/{subject}-{rec}')
+    paths_to_concat.append(f'/Volumes/neuropixel_archive/Data/acr_archive/{subject}/{subject}-{rec}')
 
 
 prepro_analysis_name = "prepro_df"

@@ -118,6 +118,9 @@ def get_config_info(subject):
 
 def single_config_vis(subject, rec):
     cfg_info = get_config_info(subject)
+    if rec not in cfg_info.keys():
+        st.write("Recording not in config info")
+        return
     x1 = 0
     x2 = cfg_info[rec]["ends"][-1]
     x_axis = np.arange(x1, x2, 10)
@@ -259,10 +262,18 @@ if "Generate Config Files" in to_do:
         _channels,
         default=["EMGr-1", "EEG_-1", "EEG_-2", "LFP_-2", "LFP_-10"],
     )
+    if recording not in list(si["rec_times"].keys()):
+        st.warning(f"{recording} is not in subject_info.yaml file for {subject}! This is Kort's fault!!")
+        st.write('To solve the above issue, acr.info_pipeline.update_subject_info() will be run to fix the issue. If this does not work, please yell at Kort.')
+        st.write('Updating subject_info.yaml file...')
+        acr.info_pipeline.update_subject_info(subject)
+        st.write('subject_info.yaml successfully updated, please rerun dashboard')
+        st.stop()
+
     duration = int(si['rec_times'][recording]['duration'])
-    single_config_vis(subject, recording)
     st.write(f"Recording duration: {duration}s")
     st.write(f"Number of chunks given duration and chunk length: {(duration/chunk_length)}")
+    single_config_vis(subject, recording)
 
     if st.button("Generate Config File"):
         acr.hypnogram_utils.gen_config(

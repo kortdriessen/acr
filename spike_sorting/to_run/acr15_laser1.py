@@ -6,13 +6,13 @@ from sort_utils import check_sorting_thresholds, check_recs_and_times, check_pro
 subject = 'ACR_15'
 experiment = 'laser1'
 recordings = ['laser1-bl', 'laser1', 'laser1-post1', 'laser1-post2']
-STORES = ["NNXr"]
+STORES = ["NNXo", "NNXr"]
 location = 'opto_loc'
 
 NCHANS = 16
 T_END = [86623, 46604, 51460, 82160]
 
-threshhold_params = [4, 10, 3]
+threshhold_params = [4, 8, 2]
 
 probe_spacing = 50
 
@@ -43,7 +43,7 @@ prepro_analysis_name = "prepro_df"
 bad_channel_ids = None
 artifact_frames_list = None
 hyp_artifactual_states = None
-sorting_analysis_name = ("ks2_5_nblocks=1_8s-batches")
+sorting_analysis_name = ("ks2_5_nblocks=1_64s-batches")
 rerun_existing = True
 dry_run = False
 hyp_paths = []

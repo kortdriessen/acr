@@ -3,18 +3,18 @@ import os
 import yaml
 from sort_utils import check_sorting_thresholds, check_recs_and_times, check_probe_spacing
 
-subject = 'ACR_15'
-experiment = 'laser1'
-recordings = ['laser1-bl', 'laser1', 'laser1-post1', 'laser1-post2']
-STORES = ["NNXo"]
-location = 'opto_loc'
+subject = 'ACR_13'
+experiment = 'sdpi'
+recordings = ['sdpi-bl', 'sdpi']
+STORES = ["NNXr", "NNXo"]
+location = 'archive'
 
 NCHANS = 16
-T_END = [86623, 46604, 51460, 82160]
+T_END = [85654, 42853]
 
-threshhold_params = [4, 10, 3]
+threshhold_params = [4, 8, 2]
 
-probe_spacing = 50
+probe_spacing = 100
 
 # ------------------------------------------------------------------------
 #Run some checks
@@ -43,7 +43,7 @@ prepro_analysis_name = "prepro_df"
 bad_channel_ids = None
 artifact_frames_list = None
 hyp_artifactual_states = None
-sorting_analysis_name = ("ks2_5_nblocks=1_8s-batches")
+sorting_analysis_name = ("ks2_5_nblocks=1_64s-batches")
 rerun_existing = True
 dry_run = False
 hyp_paths = []
