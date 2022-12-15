@@ -7,7 +7,7 @@ subject = 'ACR_15'
 experiment = 'laser1'
 recordings = ['laser1-bl', 'laser1', 'laser1-post1', 'laser1-post2']
 STORES = ["NNXo", "NNXr"]
-location = 'opto_loc'
+location = 'archive'
 
 NCHANS = 16
 T_END = [86623, 46604, 51460, 82160]
