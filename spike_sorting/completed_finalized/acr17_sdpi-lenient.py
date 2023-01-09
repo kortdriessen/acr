@@ -3,15 +3,15 @@ import os
 import yaml
 from sort_utils import check_sorting_thresholds, check_recs_and_times, check_probe_spacing
 
-subject = 'ACR_X'
-experiment = 'exp'
-recordings = ['rec1', 'rec2']
-STORES = ["NNXr", "NNXo"]
+subject = 'ACR_17'
+experiment = 'sdpi'
+recordings = ['sdpi-bl', 'sdpi', 'sdpi-post1', 'sdpi-post2', 'sdpi-post3']
+STORES = ["NNXo"]
 
 NCHANS = 16
-T_END = [0, 0]
+T_END = [0, 0, 53950, 0, 71000]
 
-threshhold_params = [4, 10, 2]
+threshhold_params = [4, 8, 2]
 
 probe_spacing = 50
 
@@ -45,7 +45,7 @@ dry_run = False
 hyp_paths = []
 
 for STORE in STORES:
-    output_dir = f'/ssd-raid0/analysis/acr_sorting/{subject}-{experiment}-{STORE}/'
+    output_dir = f'/ssd-raid0/analysis/acr_sorting/{subject}-{experiment}-{STORE}-lenient/'
     tdt_folder_paths_and_sorting_output_dir_list = [(paths_to_concat, output_dir)]
     for (tdt_folder_paths, output_dir) in tdt_folder_paths_and_sorting_output_dir_list:
         run_pipeline_tdt(

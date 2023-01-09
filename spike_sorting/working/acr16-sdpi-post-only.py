@@ -3,13 +3,13 @@ import os
 import yaml
 from sort_utils import check_sorting_thresholds, check_recs_and_times, check_probe_spacing
 
-subject = 'ACR_X'
-experiment = 'exp'
-recordings = ['rec1', 'rec2']
+subject = 'ACR_16'
+experiment = 'sdpi'
+recordings = ['sdpi-post']
 STORES = ["NNXr", "NNXo"]
 
 NCHANS = 16
-T_END = [0, 0]
+T_END = [28800]
 
 threshhold_params = [4, 10, 2]
 
@@ -19,7 +19,7 @@ probe_spacing = 50
 #Run some checks
 check_sorting_thresholds(threshhold_params)
 check_probe_spacing(probe_spacing)
-for store in STORES:
+""" for store in STORES:
     sort_id = f"{experiment}-{store}"
     times, recs = check_recs_and_times(subject, sort_id)
     if times != T_END:
@@ -27,7 +27,7 @@ for store in STORES:
         T_END = times
     if recs != recordings:
         print(f"WARNING: recordings {recs} do not match recordings {recordings}, chanding recordings to {recs}")
-        recordings = recs
+        recordings = recs """
 
 # Main Pipeline
 paths_to_concat = []
@@ -45,7 +45,7 @@ dry_run = False
 hyp_paths = []
 
 for STORE in STORES:
-    output_dir = f'/ssd-raid0/analysis/acr_sorting/{subject}-{experiment}-{STORE}/'
+    output_dir = f'/ssd-raid0/analysis/acr_sorting/{subject}-{experiment}-{STORE}-post_only/'
     tdt_folder_paths_and_sorting_output_dir_list = [(paths_to_concat, output_dir)]
     for (tdt_folder_paths, output_dir) in tdt_folder_paths_and_sorting_output_dir_list:
         run_pipeline_tdt(
