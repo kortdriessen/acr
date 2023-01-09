@@ -12,10 +12,43 @@ def save_spike_df(subject, spike_df, sort_id):
     path = f"/Volumes/opto_loc/Data/{subject}/sorting_data/spike_dataframes/{sort_id}.parquet"
     spike_df.to_parquet(path, version="2.6")
 
-def load_and_save_spike_dfs(subject, sort_ids, analysis_name="ks2_5_nblocks=1_8s-batches", drop_noise=True, stim=False):
+def load_and_save_spike_dfs(subject, sort_ids, drop_noise=True, stim=False):
     for si in sort_ids:
-        df = single_probe_spike_df(subject, si, analysis_name=analysis_name, drop_noise=drop_noise, stim=stim)
+        df = single_probe_spike_df(subject, si, drop_noise=drop_noise, stim=stim)
         save_spike_df(subject, df, si)
+
+def save_all_spike_dfs(subject, drop_noise=True, stim=True):
+    """Looks through the subject's sorting_data folder and generates + saves all spike dataframes to the spike_dataframes folder which are not already present there."""
+    sort_root = f"/Volumes/opto_loc/Data/{subject}/sorting_data/"
+    if 'spike_dataframes' not in os.listdir(sort_root):
+        os.mkdir(sort_root + 'spike_dataframes')
+    df_path = sort_root + 'spike_dataframes/'
+    for f in os.listdir(sort_root):
+        if os.path.isdir(sort_root + f): #ensure it is a folder
+            if subject in f: #ensure there is no subject name in the folder name (so that folder name is sort_id)
+                print(f'{f} is misnamed')
+                continue
+            if f == 'spike_dataframes': #ensure it is not the spike_dataframes folder
+                continue
+            if f'{f}.parquet' in os.listdir(df_path): # ensure it is not already saved
+                print(f'{f} already saved')
+                continue
+            if f'{f}.parquet' not in os.listdir(df_path): # if not saved, generate and save it
+                print(f'loading {f}')
+                stim = False if 'swi' in f else True
+                df = single_probe_spike_df(subject, f, drop_noise=drop_noise, stim=stim)
+                save_spike_df(subject, df, f)
+                print(f'saved {f}')
+
+def get_sorting_recs(subject, sort_id):
+    ss = pd.read_excel("/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/spikesorting.xlsx")
+    ss_narrowed = ss.loc[np.logical_and(ss.subject == subject, ss.sort_id == sort_id)]
+    if type( ss_narrowed.recording_end_times.values[0] ) == int:
+        recs = [ss_narrowed.recordings.values[0]]
+    else:
+        recs = ss_narrowed.recordings.values[0].split(",")
+        recs = [r.strip() for r in recs]
+    return recs
 
 def load_spike_dfs(subject, sort_id=None):
     """
@@ -42,9 +75,10 @@ def load_spike_dfs(subject, sort_id=None):
     return spike_dfs
 
 
-def sorting_path(subject, sort_id, analysis_name="ks2_5_nblocks=1_8s-batches"):
-    return f"/Volumes/opto_loc/Data/{subject}/sorting_data/{sort_id}/{analysis_name}/"
-
+def sorting_path(subject, sort_id):
+    for n in os.listdir(f"/Volumes/opto_loc/Data/{subject}/sorting_data/{sort_id}/"):
+        if 'batch' in n:
+            return f"/Volumes/opto_loc/Data/{subject}/sorting_data/{sort_id}/{n}/"
 
 def info_to_spike_df(spike_df, info, sort_id):
     for cluster_id in info.cluster_id.values:
@@ -127,6 +161,11 @@ def add_stim_info(spike_df, subject):
     for rec in np.unique(spike_df.recording.values):
         if rec in stim_exps:
             stim_type = info["stim-exps"][rec]
+            if len(stim_type) == 1:
+                stim_type = stim_type[0]
+            elif len(stim_type) > 1:
+                print("More than one stim type for this recording")
+                continue
             onsets = stim_info[rec][stim_type]["onsets"]
             onsets = [np.datetime64(o) for o in onsets]
             offsets = stim_info[rec][stim_type]["offsets"]
@@ -158,11 +197,10 @@ def add_hypno(spike_df, subject, recordings):
 def single_probe_spike_df(
     subject,
     sort_id,
-    analysis_name="ks2_5_nblocks=1_8s-batches",
     drop_noise=True,
     stim=True,
 ):
-    path = acr.units.sorting_path(subject, sort_id, analysis_name)
+    path = acr.units.sorting_path(subject, sort_id)
     sort_extractor, info = ku.io.load_sorting_extractor(path, drop_noise=drop_noise)
     spike_df = ku.io.spikeinterface_sorting_to_dataframe(sort_extractor)
     spike_df = info_to_spike_df(spike_df, info, sort_id)

@@ -12,6 +12,7 @@ import numpy as np
 import acr.info_pipeline as aip
 import os
 import xarray as xr
+import acr
 
 from acr.utils import materials_root, opto_loc_root, raw_data_root
 bands = ku.spectral.bands
@@ -45,10 +46,18 @@ def get_acr_paths(sub, xl):
 
 
 # ------------------------------------------ Hypnogram io -------------------------------------#
+def get_chunk_num(name):
+    return int(name.split('nk')[1].split('.txt')[0])
+
 def check_for_hypnos(subject, recording):
     hypno_file = f"{materials_root}acr-hypno-paths.yaml"
     with open(hypno_file, "r") as f:
         hypno_info = yaml.load(f, Loader=yaml.FullLoader)
+    if subject not in hypno_info:
+        hypno_info[subject] = {}
+        hypno_info[subject]["hypno-root"] = f'{materials_root}{subject}/hypnograms/'
+        with open(hypno_file, "w") as f:
+            yaml.dump(hypno_info, f)
     if recording in hypno_info[subject]:
         return True
     else:
@@ -79,6 +88,7 @@ def update_hypno_yaml(subject):
         if len(rec_hypnos) == 0:
             continue
         rec_hypnos = sorted(rec_hypnos)
+        rec_hypnos.sort(key=get_chunk_num)
         hypno_info[subject][rec] = rec_hypnos
     with open(hypno_file, "w") as f:
         yaml.dump(hypno_info, f)
@@ -101,7 +111,7 @@ def load_hypno(subject, recording):
 
     all_hypnos = []
     for hp in hypno_paths:
-        if "chunk1" in str(hp):
+        if "chunk1.txt" in str(hp):
             config_path = f"{materials_root}{subject}/config-files/{subject}_sleepscore-config_{recording}-chunk1.yml"
             config = yaml.load(open(config_path, "r"), Loader=yaml.FullLoader)
             start = config["tStart"]
@@ -129,12 +139,15 @@ def load_hypno_full_exp(subject, exp):
     hypno_file = f"{materials_root}acr-hypno-paths.yaml"
     hypno_info = yaml.load(open(hypno_file, "r"), Loader=yaml.FullLoader)
     recs = [x for x in list(hypno_info[subject].keys()) if exp in x]
+    recs = acr.info_pipeline.get_exp_recs(subject, exp)
     for rec in recs:
-        h[rec] = load_hypno(subject, rec)
+        if rec in list(hypno_info[subject].keys()):
+            h[rec] = load_hypno(subject, rec)
     return DatetimeHypnogram(pd.concat(h.values()))
 
 # ---------------------------------------------------- Data + Spectral io --------------------------------------
-def calc_and_save_bandpower_sets(subject, recordings, stores, window_length=4, overlap=2):
+
+def calc_and_save_bandpower_sets(subject, stores=['NNXo', 'NNXr'], window_length=4, overlap=2):
     """
     NOTE: ONLY USE THIS IF BANDPOWER SETS NOT ALREADY CALCULATED
     NOTE: MUST HAVE DATA STORED IN SUBJECT FOLDER AS NETCDF FILE
@@ -148,9 +161,25 @@ def calc_and_save_bandpower_sets(subject, recordings, stores, window_length=4, o
     Returns:
         Nothing - only used to save bandpower datasets to bandpower_data folder
     """
-    
+    pp_recs = aip.current_processed_recordings(subject)
+    impt_recs = aip.get_impt_recs(subject)
+
+    # make sure the bandpower_data folder exists
+    root = f'/Volumes/opto_loc/Data/{subject}/'
+    dirs = os.listdir(root)
+    dirs = [d for d in dirs if os.path.isdir(root+d)]
+    if 'bandpower_data' not in dirs:
+        os.makedirs(root+'bandpower_data', exist_ok=False)
+
+    bp_root = f'/Volumes/opto_loc/Data/{subject}/bandpower_data/'
+    bp_recs = os.listdir(bp_root)
     for store in stores:
-        for recording in recordings:
+        for recording in pp_recs:
+            if recording not in impt_recs:
+                continue
+            if f'{recording}-{store}.nc' in bp_recs:
+                print(f'{recording}-{store} already calculated')
+                continue
             data_root = f"{opto_loc_root}{subject}"
             bp_root = f'{data_root}/bandpower_data/'
             data = load_raw_data(subject, recording, store)

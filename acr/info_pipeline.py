@@ -261,6 +261,8 @@ def preprocess_and_save_recording(subject, rec, fs_target=400):
     raw_data = {}
     path = info["paths"][rec]
     t2 = info["rec_times"][rec]["duration"]
+    
+
     for store in info["raw_stores"]:
         raw_data[rec + "-" + store] = kx.io.get_data(
             path, store, channel=info["channels"][store], t1=0, t2=t2
@@ -288,6 +290,14 @@ def preprocess_and_save_recording(subject, rec, fs_target=400):
         kx.io.save_dataarray(dec_data[key], save_path)
     return
 
+def preprocess_and_save_all_recordings(subject, fs_target=400):
+    all_recs = get_impt_recs(subject)
+    already_done = current_processed_recordings(subject)
+    for rec in all_recs:
+        if rec not in already_done:
+            print("preprocessing: " + rec)
+            preprocess_and_save_recording(subject, rec, fs_target=fs_target)
+    return
 
 def prepro_lite(subject, rec, fs_target=100, t1=0, t2=0):
     """
@@ -599,3 +609,24 @@ def current_processed_recordings(subject):
             rec_name = '-'.join(name)
             processed.append(rec_name)
     return np.unique(processed)
+
+def get_impt_recs(subject):
+    """returns a list of all recordings (under all experiments) from the important_recs.yaml file"""
+    important_recs = yaml.safe_load(open(f'{materials_root}important_recs.yaml', 'r'))
+    impt_recs = important_recs[subject]
+    recs = []
+    for exp in impt_recs:
+        if exp == 'stores':
+            continue
+        for rec in impt_recs[exp]:
+            recs.append(rec)
+    return recs
+
+def get_exp_recs(subject, exp):
+    """returns a list of all recordings (under a single experiment) from the important_recs.yaml file"""
+    important_recs = yaml.safe_load(open(f'{materials_root}important_recs.yaml', 'r'))
+    impt_recs = important_recs[subject]
+    recs = []
+    for rec in impt_recs[exp]:
+        recs.append(rec)
+    return recs
