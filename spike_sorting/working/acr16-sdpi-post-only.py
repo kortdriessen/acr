@@ -5,7 +5,7 @@ from sort_utils import check_sorting_thresholds, check_recs_and_times, check_pro
 
 subject = 'ACR_16'
 experiment = 'sdpi'
-recordings = ['sdpi-post']
+recordings = ['sdpi']
 STORES = ["NNXr", "NNXo"]
 
 NCHANS = 16

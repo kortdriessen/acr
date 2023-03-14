@@ -3,13 +3,13 @@ import os
 import yaml
 from sort_utils import check_sorting_thresholds, check_recs_and_times, check_probe_spacing
 
-subject = 'ACR_X'
-experiment = 'exp'
-recordings = ['rec1', 'rec2']
+subject = 'ACR_20'
+experiment = 'swisin'
+recordings = ['swisin-bl', 'swisin', 'swisin-post']
 STORES = ["NNXr", "NNXo"]
 
 NCHANS = 16
-T_END = [0, 0]
+T_END = [0, 0, 0]
 
 threshhold_params = [4, 10, 2]
 
