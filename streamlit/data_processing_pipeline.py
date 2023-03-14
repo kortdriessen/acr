@@ -120,21 +120,23 @@ if st.button('Update end_times.yaml'):
     important_recs = yaml.safe_load(open('/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/important_recs.yaml', 'r'))
     end_info = yaml.safe_load(open('/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/end_times.yaml', 'r'))
 
-    for subject in important_recs.keys():
-        si = acr.info_pipeline.load_subject_info(subject)
-        stores = important_recs[subject]['stores']
-        for exp in important_recs[subject]:
+    for sub in important_recs.keys():
+        if sub != subject:
+            continue
+        si = acr.info_pipeline.load_subject_info(sub)
+        stores = important_recs[sub]['stores']
+        for exp in important_recs[sub]:
             if exp == 'stores':
                 continue
-            for rec in important_recs[subject][exp]:
+            for rec in important_recs[sub][exp]:
                 for store in stores:
-                    print(f'Checking {subject} {rec} {store} for zero-endings')
+                    print(f'Checking {sub} {rec} {store} for zero-endings')
                     #check if already searched for zero-periods
-                    if check_end_times_yaml(subject, rec, store):
+                    if check_end_times_yaml(sub, rec, store):
                         continue
                 
                     #Load the data
-                    print(f'loading {subject} {rec} {store}')
+                    print(f'loading {sub} {rec} {store}')
                     data = tdt.read_block(si['paths'][rec], store=store, channel=14, t1=0, t2=0)
                     data = data.streams[store].data
                     
@@ -142,13 +144,13 @@ if st.button('Update end_times.yaml'):
                     zero_period_start = search_for_zero_period(data)
 
                     # update that start time in the yaml file
-                    if subject not in end_info.keys():
-                        end_info[subject] = {}
-                    if rec not in end_info[subject].keys():
-                        end_info[subject][rec] = {}
-                    if store not in end_info[subject][rec].keys():
-                        end_info[subject][rec][store] = {}
-                    end_info[subject][rec][store]['zero_period_start'] = zero_period_start
+                    if sub not in end_info.keys():
+                        end_info[sub] = {}
+                    if rec not in end_info[sub].keys():
+                        end_info[sub][rec] = {}
+                    if store not in end_info[sub][rec].keys():
+                        end_info[sub][rec][store] = {}
+                    end_info[sub][rec][store]['zero_period_start'] = zero_period_start
                     with open('/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/end_times.yaml', 'w') as f:
                         yaml.dump(end_info, f)
     st.write('Successfully updated end_times.yaml')
@@ -165,22 +167,24 @@ if st.button('Update duplication_info.yaml'):
     important_recs = yaml.safe_load(open('/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/important_recs.yaml', 'r'))
     end_info = yaml.safe_load(open('/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/end_times.yaml', 'r'))
 
-    for subject in important_recs.keys():
-        si = acr.info_pipeline.load_subject_info(subject)
-        stores = important_recs[subject]['stores']
-        for exp in important_recs[subject]:
+    for sub in important_recs.keys():
+        if sub != subject:
+            continue
+        si = acr.info_pipeline.load_subject_info(sub)
+        stores = important_recs[sub]['stores']
+        for exp in important_recs[sub]:
             if exp == 'stores':
                 continue
-            for rec in important_recs[subject][exp]:
+            for rec in important_recs[sub][exp]:
                 for store in stores:
-                    print(f'Checking {subject} {rec} {store} for duplicates')
+                    print(f'Checking {sub} {rec} {store} for duplicates')
                     #check if already searched for duplicates
-                    if check_dup_info_yaml(subject, rec, store):
-                        print(f'Already checked {subject} {rec} {store}, skipping')
+                    if check_dup_info_yaml(sub, rec, store):
+                        print(f'Already checked {sub} {rec} {store}, skipping')
                         continue
 
                     #check if there is a zero-period to avoid
-                    end_time = end_info[subject][rec][store]['zero_period_start'][0]
+                    end_time = end_info[sub][rec][store]['zero_period_start'][0]
                     if type(end_time) == int:
                         t2 = end_time
                     else:
@@ -203,19 +207,19 @@ if st.button('Update duplication_info.yaml'):
                     #Plot the duplicates
                     for i in range(len(starts)):
                         f, ax, dup_len = plot_duplicate(data, starts[i], ends[i], dup_starts[i], dup_ends[i])
-                        ax.set_title(f'{subject} | {rec} | {store} | Duplicate {i+1}/{len(starts)} | {dup_len} samples | Start Time = {starts[i]/24414.0625} s')
-                        plt.savefig(f'/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/data_duplication_figures/{subject}--{rec}--{store}__duplicate{i+1}.png')
+                        ax.set_title(f'{sub} | {rec} | {store} | Duplicate {i+1}/{len(starts)} | {dup_len} samples | Start Time = {starts[i]/24414.0625} s')
+                        plt.savefig(f'/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/data_duplication_figures/{sub}--{rec}--{store}__duplicate{i+1}.png')
                         plt.close('all')
                     
                     #Save the start and end indexes of the duplicates to yaml file
-                    if subject not in dup_info.keys():
-                        dup_info[subject] = {}
-                    if rec not in dup_info[subject].keys():
-                        dup_info[subject][rec] = {}
-                    if store not in dup_info[subject][rec].keys():
-                        dup_info[subject][rec][store] = {}
-                    dup_info[subject][rec][store]['starts'] = starts.tolist()
-                    dup_info[subject][rec][store]['ends'] = ends.tolist()
+                    if sub not in dup_info.keys():
+                        dup_info[sub] = {}
+                    if rec not in dup_info[sub].keys():
+                        dup_info[sub][rec] = {}
+                    if store not in dup_info[sub][rec].keys():
+                        dup_info[sub][rec][store] = {}
+                    dup_info[sub][rec][store]['starts'] = starts.tolist()
+                    dup_info[sub][rec][store]['ends'] = ends.tolist()
                     with open('/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/duplication_info.yaml', 'w') as f:
                         yaml.dump(dup_info, f)
     st.write('Successfully updated duplication_info.yaml')
@@ -234,25 +238,25 @@ if st.button('Update master_rec_quality.xlsx'):
     end_info = yaml.safe_load(open('/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/end_times.yaml', 'r'))
 
     dic_list = []
-    for subject in important_recs.keys():
-        si = acr.info_pipeline.load_subject_info(subject)
-        stores = important_recs[subject]['stores']
-        for exp in important_recs[subject]:
+    for sub in important_recs.keys():
+        si = acr.info_pipeline.load_subject_info(sub)
+        stores = important_recs[sub]['stores']
+        for exp in important_recs[sub]:
             if exp == 'stores':
                 continue
-            for rec in important_recs[subject][exp]:
+            for rec in important_recs[sub][exp]:
                 for store in stores:
                     #check if info already in rec_quality sheet
-                    if check_rec_quality_sheet(subject, rec, store):
+                    if check_rec_quality_sheet(sub, rec, store):
                         continue
-                    print(f'Adding {subject} {rec} {store} to rec_quality sheet')
-                    end_time = end_info[subject][rec][store]['zero_period_start'][0]
-                    duplicate = dup_info[subject][rec][store]['starts']
+                    print(f'Adding {sub} {rec} {store} to rec_quality sheet')
+                    end_time = end_info[sub][rec][store]['zero_period_start'][0]
+                    duplicate = dup_info[sub][rec][store]['starts']
                     if duplicate == []:
                         duplicate = 'No'
                     else:
                         duplicate = len(duplicate)
-                    dic = {'subject':subject, 'recording':rec, 'store':store, 'end_time':end_time, 'duplicate_found':duplicate, 'duplicates_corrected':'', 'notes':''}
+                    dic = {'subject':sub, 'recording':rec, 'store':store, 'end_time':end_time, 'duplicate_found':duplicate, 'duplicates_corrected':'', 'notes':''}
                     dic_list.append(dic)
     df = pd.DataFrame.from_records(dic_list)
     if df.empty:
