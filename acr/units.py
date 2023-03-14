@@ -8,6 +8,9 @@ import kdephys.units as ku
 import pandas as pd
 import os
 
+from on_off_detection import OnOffModel
+import on_off_detection as ood
+
 def save_spike_df(subject, spike_df, sort_id):
     path = f"/Volumes/opto_loc/Data/{subject}/sorting_data/spike_dataframes/{sort_id}.parquet"
     spike_df.to_parquet(path, version="2.6")
@@ -77,7 +80,7 @@ def load_spike_dfs(subject, sort_id=None):
 
 def sorting_path(subject, sort_id):
     for n in os.listdir(f"/Volumes/opto_loc/Data/{subject}/sorting_data/{sort_id}/"):
-        if 'batch' in n:
+        if 'ks2_5' in n:
             return f"/Volumes/opto_loc/Data/{subject}/sorting_data/{sort_id}/{n}/"
 
 def info_to_spike_df(spike_df, info, sort_id):
@@ -215,3 +218,58 @@ def single_probe_spike_df(
     print("adding hypno")
     spike_df = add_hypno(spike_df, subject, recordings)
     return spike_df
+
+
+# ----------------------------------------- ON-OFF DETECTION ----------------------------------------------------------------------------------------
+def load_hypno_for_ood(subject, sort_id, state=['NREM']):
+    recs, st, durs = acr.units.get_time_info(subject, sort_id)
+    hyps = {}
+    running_dur = 0
+    for i, rec in enumerate(recs):
+        hyp = acr.io.load_hypno(subject, rec)
+        if hyp is None:
+            hyps[rec] = hyp
+            continue
+        hyp = hyp.as_float()
+        if i == 0:
+            hyps[rec] = hyp
+            continue
+        running_dur += durs[i-1]
+        hyp['start_time'] = hyp.start_time.values + running_dur
+        hyp['end_time'] = hyp.end_time.values + running_dur
+        hyps[rec] = hyp
+    df = pd.concat(hyps)
+    return df.reset_index(drop=True), hyps
+    
+def load_data_for_ood(subject, sort_id):
+    path = acr.units.sorting_path(subject, sort_id)
+    sort_extractor, info = ku.io.load_sorting_extractor(path, drop_noise=True)
+    clustid = sort_extractor.unit_ids
+    unit_trains = []
+    for unit_id in clustid:
+        trn = sort_extractor.get_unit_spike_train(unit_id)
+        trn = trn / sort_extractor.get_sampling_frequency() # gets all of the spike times in seconds
+        unit_trains.append(trn) # gets us a list of spike trains for each unit we loaded
+    return clustid, unit_trains
+
+
+def run_ood(unit_trains, clust_ids, hypno, tmax=None):
+    ood.HMMEM_PARAMS["init_state_estimate_method"] = "conservative"
+    
+    GLOBAL_ON_OFF_DETECTION_PARAMS = {
+    "binsize": 0.01,  # (s) (Discrete algorithm)
+    "history_window_nbins": 3,  # Size of history window IN BINS
+    "n_iter_EM": 200,  # Number of iterations for EM
+    "n_iter_newton_ralphson": 100,
+    "init_A": np.array(
+        [[0.1, 0.9], [0.01, 0.99]]
+    ),  # Initial transition probability matrix
+    "init_mu": None,  # ~ OFF rate. Fitted to data if None
+    "init_alphaa": None,  # ~ difference between ON and OFF rate. Fitted to data if None
+    "init_betaa": None,  # ~ Weight of recent history firing rate. Fitted to data if None,
+    "gap_threshold": .04,  # Merge active states separated by less than gap_threhsold
+    }
+
+    mod = OnOffModel(unit_trains, tmax, clust_ids, method='hmmem', params=GLOBAL_ON_OFF_DETECTION_PARAMS, bouts_df=hypno)
+    oodf = mod.run()
+    return oodf
