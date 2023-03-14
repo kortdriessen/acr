@@ -4,13 +4,15 @@ import tdt
 from pathlib import Path
 import matplotlib.pyplot as plt
 import yaml
-import xarray as xr
 import yaml
 import kdephys.xr as kx
 import acr
 import os
 from itertools import cycle
+import math
 from importlib.machinery import SourceFileLoader
+from benedict import benedict
+import datetime
 from acr.utils import raw_data_root, materials_root, opto_loc_root
 
 def subject_params(subject):
@@ -23,8 +25,12 @@ def load_subject_info(subject):
     path = f"{materials_root}{subject}/subject_info.yml"
     with open(path, "r") as f:
         data = yaml.safe_load(f)
-    return data
+    return benedict(data)
 
+def load_dup_info(subject, rec, store):
+    path = f"{materials_root}duplication_info.yaml"
+    dup_info = yaml.safe_load(open(path, 'r'))
+    return benedict(dup_info[subject][rec][store])
 
 def get_all_tank_keys(root, sub):
     tanks = []
@@ -56,10 +62,25 @@ def get_time_full_load(path, store):
     times["end"] = str(end)
     return times
 
+def get_duration_from_store(path, store):
+    data = tdt.read_block(path, evtype=["streams"], channel=[1], store=store)
+    num_samples = len(data.streams[store].data)
+    fs = data.streams[store].fs
+    return float(num_samples / fs)
 
 def time_sanity_check(time):
     return time > np.datetime64("2018-01-01")
 
+def no_end_check(block):
+    """returns True if block.info.stop_date is nan, returns False otherwise
+
+    Args:
+        block (_type_): tdt block
+    """
+    if type(block.info.stop_date) == datetime.datetime:
+        return False
+    else:
+        return math.isnan(block.info.stop_date)
 
 def get_rec_times(sub, exps, time_stores=["NNXo", "NNXr"], backup_store=["EMGr"]):
     """Gets durations, starts, and ends of recording times for set of experiments.
@@ -80,8 +101,15 @@ def get_rec_times(sub, exps, time_stores=["NNXo", "NNXr"], backup_store=["EMGr"]
         print(f"streams for {exp} are {streams}")
         i = d.info
         start = np.datetime64(i.start_date)
-        end = np.datetime64(i.stop_date)
-        block_duration = float((end - start) / np.timedelta64(1, "s"))
+        
+        if no_end_check(d):
+            block_duration = get_duration_from_store(p, 'NNXr')
+            end = start + pd.Timedelta(block_duration, 's')
+            end = np.datetime64(end)
+        elif no_end_check(d) == False:
+            end = np.datetime64(i.stop_date)
+            block_duration = float((end - start) / np.timedelta64(1, "s"))
+        
         new_t1 = int(block_duration - 30)
 
         if not time_sanity_check(end):
@@ -192,7 +220,7 @@ def subject_info_gen(subject):
     stim_info_to_yaml(subject, params["stim-exps"])
     return
 
-def update_subject_info(subject):
+def update_subject_info(subject, impt_only=True):
     """
     This function will load a subject's params dictionary from subject_params.py, and then update the subject_info.yml file.
     The params dictionary should have the following properties:
@@ -216,11 +244,17 @@ def update_subject_info(subject):
     recordings = get_all_tank_keys(root, subject)
     with open(path) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
-    
+    impt_recs = get_impt_recs(subject)
     new_recs = []
     for rec in recordings:
         if rec not in data['recordings']:
-            new_recs.append(rec)
+            if impt_only==True:
+                if rec in impt_recs:
+                    print(f'adding important rec: {rec}')
+                    new_recs.append(rec)
+            if impt_only == False:
+                print(f'adding NON-important rec {rec}')
+                new_recs.append(rec)
     
     times = get_rec_times(
         subject,
@@ -496,7 +530,9 @@ def stim_info_to_yaml(subject, exps):
     """
 
     path = f"{materials_root}{subject}/subject_info.yml"
-    info = load_subject_info(subject)
+    #info = load_subject_info(subject)
+    with open(path) as f:
+        info = yaml.load(f, Loader=yaml.FullLoader)
     stim_info = {}
 
     if "stim_info" not in info.keys():
@@ -530,7 +566,7 @@ def stim_info_to_yaml(subject, exps):
                 stim_info[exp][store] = {}
                 stim_info[exp][store]["onsets"] = on_str
                 stim_info[exp][store]["offsets"] = off_str
-            elif store in ['Bttn', 'Pu1_']:
+            elif store in ['Bttn', 'Pu1_', 'Pu2_', 'Pu3_']:
                 on, off = epoc_extractor(subject, exp, store)
                 on_list = list(on)
                 on_str = [str(x) for x in on_list]

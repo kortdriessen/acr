@@ -2,8 +2,6 @@ import acr
 import numpy as np
 import pandas as pd
 
-
-
 def get_pulse_train_times(subject, recording, store):
     """Get the index values of the pulse train onsets and offsets
 

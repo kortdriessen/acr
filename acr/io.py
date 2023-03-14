@@ -127,7 +127,7 @@ def load_hypno(subject, recording):
     hypno = pd.concat(all_hypnos)
     return DatetimeHypnogram(hypno)
 
-def load_hypno_full_exp(subject, exp):
+def load_hypno_full_exp(subject, exp, float=False):
     """loads every hypnogram across all recordings of an experiment, and concatenates them
 
     Args:
@@ -143,6 +143,9 @@ def load_hypno_full_exp(subject, exp):
     for rec in recs:
         if rec in list(hypno_info[subject].keys()):
             h[rec] = load_hypno(subject, rec)
+    if float: 
+        for rec in h.keys():
+            h[rec] = h[rec].as_float()
     return DatetimeHypnogram(pd.concat(h.values()))
 
 # ---------------------------------------------------- Data + Spectral io --------------------------------------
