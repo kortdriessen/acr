@@ -1,2 +1,1 @@
-BEFORE NEXT PREPROCESSING:
-- Assign recording coordinate to all xarray raw datasets??
+- correct all pulse effectiveness analyses, using template of ACR_20-swi #TODO
