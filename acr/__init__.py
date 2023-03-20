@@ -6,4 +6,5 @@ from . import (
     units,
     hypnogram_utils,
     stim,
+    duplication_functions,
 )
