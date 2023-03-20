@@ -1,1 +1,3 @@
 - correct all pulse effectiveness analyses, using template of ACR_20-swi #TODO
+
+- run sorting to see if reduction in firing rate after photoinhibition is legit or not #TODO
