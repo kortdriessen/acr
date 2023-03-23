@@ -11,12 +11,60 @@ import streamlit as st
 plt.style.use('fast')
 plt.style.use('/home/kdriessen/github_t2/kdephys/kdephys/plot/acr_plots.mplstyle')
 import ast
-from acr.duplication_functions import *
+import acr.duplication_functions as dpf
 
 seq_len = 245760
 fs = 24414.0625
 
+def format_rec_quality(path):
+    rc = pd.read_excel(path) #dataframe
+    writer = pd.ExcelWriter(path, engine='xlsxwriter') #create writer
+    rc.to_excel(writer, sheet_name='master', index=False) #write to excel
+    workbook  = writer.book
+    worksheet = writer.sheets['master']
 
+    # Add a format. Light red fill with dark red text.
+    format_red = workbook.add_format({'bg_color': '#FFC7CE',
+                                'font_color': '#9C0006'})
+
+    # Add a format. Green fill with dark green text.
+    format_green = workbook.add_format({'bg_color': '#C6EFCE',
+                                'font_color': '#006100'})
+
+    # Have duplicates been found?
+    worksheet.conditional_format('E1:E1000', {'type':     'text',
+                                        'criteria': 'containing',
+                                        'value':    'No',
+                                        'format':   format_green})
+
+    #Have duplicates been corrected?
+    worksheet.conditional_format('F1:F1000', {'type':     'text',
+                                        'criteria': 'containing',
+                                        'value':    'yes',
+                                        'format':   format_green})
+
+    worksheet.conditional_format('F1:F1000', {'type':     'text',
+                                        'criteria': 'containing',
+                                        'value':    'No',
+                                        'format':   format_red})
+
+    #Do the durations match?
+    worksheet.conditional_format('G2:G1000', {'type':     'cell',
+                                        'criteria': '>',
+                                        'value':    0,
+                                        'format':   format_red})
+
+    worksheet.conditional_format('G2:G1000', {'type':     'cell',
+                                        'criteria': '<',
+                                        'value':    0,
+                                        'format':   format_red})
+
+    worksheet.conditional_format('G2:G1000', {'type':     'cell',
+                                        'criteria': '==',
+                                        'value':    0,
+                                        'format':   format_green})
+    writer.close()
+    return
 
 def check_end_times_yaml(subject, rec, store):
     end_info = yaml.safe_load(open('/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/end_times.yaml', 'r'))
@@ -60,7 +108,7 @@ st.markdown('---')
 
 st.write('Once those are updated, update the subject_info.yaml file:')
 if st.button('Update subject_info.yaml'):
-    acr.info_pipeline.update_subject_info(subject)
+    acr.info_pipeline.update_subject_info(subject, impt_only=True)
     st.write('Successfully updated subject_info.yaml')
 
 st.markdown('---')
@@ -105,6 +153,10 @@ if st.button('Update end_times.yaml'):
                     if store not in end_info[sub][rec].keys():
                         end_info[sub][rec][store] = {}
                     end_info[sub][rec][store]['zero_period_start'] = zero_period_start
+                    if zero_period_start == [0]:
+                        st.write(f'No zero-endings found for {rec} - {store}')
+                    else:
+                        st.write(f'Found a zero ending for {rec} - {store} | location: {zero_period_start}')
                     with open('/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/end_times.yaml', 'w') as f:
                         yaml.dump(end_info, f)
     st.write('Successfully updated end_times.yaml')
@@ -133,7 +185,7 @@ if st.button('Update duplication_info.yaml'):
                 for store in stores:
                     print(f'Checking {sub} {rec} {store} for duplicates')
                     #check if already searched for duplicates
-                    if check_dup_info_yaml(sub, rec, store):
+                    if dpf.check_dup_info_yaml(sub, rec, store):
                         print(f'Already checked {sub} {rec} {store}, skipping')
                         continue
 
@@ -149,10 +201,10 @@ if st.button('Update duplication_info.yaml'):
                     #Load the data, find start and end indexes of duplicates
                     data = tdt.read_block(si['paths'][rec], store=store, channel=14, t1=0, t2=t2)
                     data = data.streams[store].data
-                    starts = find_all_duplicate_start_indexes(data)
+                    starts = dpf.find_all_duplicate_start_indexes(data)
                     ends = []
                     for s in starts:
-                        e = find_duplicate_end_index(s, data)
+                        e = dpf.find_duplicate_end_index(s, data)
                         if e is not None:
                             ends.append(e)
                     ends = np.array(ends)
@@ -160,7 +212,7 @@ if st.button('Update duplication_info.yaml'):
                     dup_ends = ends + seq_len
                     #Plot the duplicates
                     for i in range(len(starts)):
-                        f, ax, dup_len = plot_duplicate(data, starts[i], ends[i], dup_starts[i], dup_ends[i])
+                        f, ax, dup_len = dpf.plot_duplicate(data, starts[i], ends[i], dup_starts[i], dup_ends[i])
                         ax.set_title(f'{sub} | {rec} | {store} | Duplicate {i+1}/{len(starts)} | {dup_len} samples | Start Time = {starts[i]/24414.0625} s')
                         plt.savefig(f'/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/data_duplication_figures/{sub}--{rec}--{store}__duplicate{i+1}.png')
                         plt.close('all')
@@ -174,6 +226,10 @@ if st.button('Update duplication_info.yaml'):
                         dup_info[sub][rec][store] = {}
                     dup_info[sub][rec][store]['starts'] = starts.tolist()
                     dup_info[sub][rec][store]['ends'] = ends.tolist()
+                    if len(starts) == 0:
+                        st.write(f'No duplicates found for {rec} - {store}')
+                    else:
+                        st.write(f'Found {len(starts)} duplicates for {rec} - {store}')
                     with open('/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/duplication_info.yaml', 'w') as f:
                         yaml.dump(dup_info, f)
     st.write('Successfully updated duplication_info.yaml')
@@ -193,6 +249,8 @@ if st.button('Update master_rec_quality.xlsx'):
 
     dic_list = []
     for sub in important_recs.keys():
+        if sub != subject:
+            continue
         si = acr.info_pipeline.load_subject_info(sub)
         stores = important_recs[sub]['stores']
         for exp in important_recs[sub]:
@@ -213,12 +271,29 @@ if st.button('Update master_rec_quality.xlsx'):
                     dic = {'subject':sub, 'recording':rec, 'store':store, 'end_time':end_time, 'duplicate_found':duplicate, 'duplicates_corrected':'', 'notes':''}
                     dic_list.append(dic)
     df = pd.DataFrame.from_records(dic_list)
-    if df.empty:
-        print('No new entries to add to rec_quality sheet')
-    else:
+    
+    if not df.empty:
         df.loc[df.duplicate_found != 'No', 'duplicates_corrected'] = 'No'
-        new_rec_quality = pd.concat([rec_quality, df], ignore_index=True)
-        new_rec_quality.to_excel(recq_path, index=False)
+    
+    new_rec_quality = pd.concat([rec_quality, df], ignore_index=True) if not df.empty else rec_quality 
+    
+    #this updates the duration_match column for all important recs for each subject
+    for exp in important_recs[sub]:
+        if exp == 'stores':
+            continue
+        for rec in important_recs[sub][exp]:
+            for store in important_recs[sub]['stores']:
+                if 'NNXr' and 'NNXo' in important_recs[sub]['stores']:
+                    other = 'NNXo' if store == 'NNXr' else 'NNXr'
+                    diff = si['rec_times'][rec][f'{store}-duration'] - si['rec_times'][rec][f'{other}-duration']
+                else:
+                    diff = 0
+                ix = new_rec_quality.loc[new_rec_quality.subject == sub].loc[new_rec_quality.recording==rec].loc[new_rec_quality.store==store].index.values[0]
+                new_rec_quality.at[ix, 'duration_match'] = diff
+    
+    #save the new_rec_quality sheet
+    new_rec_quality.to_excel(recq_path, index=False)
+    format_rec_quality(recq_path)
     st.write('Successfully updated master_rec_quality.xlsx')
 
 st.markdown('---')
@@ -238,5 +313,3 @@ if st.button('Process LFPs, Bandpower, Unit Dataframes'):
     #THen process the unit dataframes
     st.write('Processing Unit Dataframes')
     acr.units.save_all_spike_dfs(subject, drop_noise=True, stim=True)
-    
-
