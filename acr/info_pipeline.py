@@ -280,6 +280,46 @@ def update_subject_info(subject, impt_only=True):
     stim_info_to_yaml(subject, params["stim-exps"]) # add the stim_info (automatically only loads new recordings, old ones are kept)
     return
 
+def save_subject_info(subject, info_dict):
+    """
+    Saves a subject_info.yml file for a subject, using a dictionary.
+    """
+    path = f"{materials_root}{subject}/subject_info.yml"
+    with open(path, "w") as f:
+        yaml.dump(info_dict, f)
+    return
+
+def redo_subject_info(subject, recs=[]):
+    "this deletes a recording entirely from the subject info dict, and then forces it to recalculate the rec_times and stim_info for each recording."
+    if len(recs) == 0:
+        print('No recordings specified!')
+        return
+    path = f"{materials_root}{subject}/subject_info.yml"
+    with open(path) as f:
+        si = yaml.load(f, Loader=yaml.FullLoader)
+
+    for rec in recs:
+        assert rec in si['recordings'], f'{rec} not in {subject} recordings!'
+        #first remove each rec from the 'recordings' list:
+        si['recordings'].remove(rec)
+
+        #then remove each rec from the 'rec_times' dict:
+        si['rec_times'].pop(rec)
+
+        #and from the 'paths' dict for completeness:
+        si['paths'].pop(rec)
+
+        #Then remove each rec from 'stim_info' and 'stim_exps', if it exists:
+        if rec in si['stim_info'].keys():
+            si['stim_info'].pop(rec)
+        if rec in si['stim-exps'].keys():
+            si['stim-exps'].pop(rec)
+    #then resave the subject info:
+    acr.info_pipeline.save_subject_info(subject, si)
+    #now we update the subject_info file, which should force it to recalculate rec_times and stim_info for each rec:
+    acr.info_pipeline.update_subject_info(subject)
+    return
+
 def preprocess_and_save_recording(subject, rec, fs_target=400):
     """
     * Requires an updated subject_info file *
