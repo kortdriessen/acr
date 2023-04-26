@@ -15,6 +15,11 @@ from benedict import benedict
 import datetime
 from acr.utils import raw_data_root, materials_root, opto_loc_root
 
+def load_rec_quality():
+    path = f"{materials_root}master_rec_quality.xlsx"
+    return pd.read_excel(path)
+
+
 def subject_params(subject):
     path = f"{materials_root}{subject}/subject_params.py"
     sub_params = SourceFileLoader("sub_params", path).load_module()

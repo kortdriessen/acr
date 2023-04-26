@@ -7,9 +7,10 @@ from kdephys.pd.ecdata import ecdata
 import kdephys.xr as kx
 
 import kdephys.utils as ku
-from kdephys.hypno.ecephys_hypnogram import DatetimeHypnogram
+from kdephys.hypno.ecephys_hypnogram import DatetimeHypnogram, FloatHypnogram
 import numpy as np
 import acr.info_pipeline as aip
+import acr.hypnogram_utils as hu
 import os
 import xarray as xr
 import acr
@@ -95,7 +96,7 @@ def update_hypno_yaml(subject):
     return
 
 
-def load_hypno(subject, recording):
+def load_hypno(subject, recording, corrections=False):
     update_hypno_yaml(subject)
     hypno_file = f"{materials_root}acr-hypno-paths.yaml"
     hypno_root = f"{materials_root}{subject}/hypnograms/"
@@ -125,14 +126,20 @@ def load_hypno(subject, recording):
             all_hypnos.append(h)
             end = h.end_time.max()
     hypno = pd.concat(all_hypnos)
-    return DatetimeHypnogram(hypno)
+    hypno = hypno.reset_index(drop=True)
+    hypno = DatetimeHypnogram(hypno)
+    if corrections:
+        return hu.standard_hypno_corrections(hypno)
+    else:
+        return hypno
 
-def load_hypno_full_exp(subject, exp, float=False):
+def load_hypno_full_exp(subject, exp, corrections=True, float=False):
     """loads every hypnogram across all recordings of an experiment, and concatenates them
 
     Args:
         subject (str): subject name
         exp (str): experiment name
+        float (bool, optional): if True, each recording's hypnogram is FIRST converted to float BEFORE concatenating, so each individual hypnogram will start at zero. Defaults to False.
     """
     h = {}
     update_hypno_yaml(subject)
@@ -146,7 +153,14 @@ def load_hypno_full_exp(subject, exp, float=False):
     if float: 
         for rec in h.keys():
             h[rec] = h[rec].as_float()
-    return DatetimeHypnogram(pd.concat(h.values()))
+        hypno_final =  FloatHypnogram(pd.concat(h.values()))
+        hypno_final = hu.standard_hypno_corrections(hypno_final.reset_index(drop=True))
+        return hypno_final
+    else:
+        hypno_final =  DatetimeHypnogram(pd.concat(h.values()))
+        if corrections == True:
+            hypno_final = hu.standard_hypno_corrections(hypno_final.reset_index(drop=True))
+        return hypno_final
 
 # ---------------------------------------------------- Data + Spectral io --------------------------------------
 
