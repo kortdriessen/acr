@@ -7,7 +7,7 @@ import acr.units as au
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
-import kdephys.units.methods
+import kdephys.pd.df_methods
 import matplotlib
 import kdephys.plot as kp
 
