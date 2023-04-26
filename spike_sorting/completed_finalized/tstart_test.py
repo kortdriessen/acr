@@ -4,24 +4,22 @@ import yaml
 import pandas as pd
 from sort_utils import check_sorting_thresholds, check_recs_and_times, check_probe_spacing
 
-subject = 'ACR_X'
-experiment = 'exp'
-recordings = ['rec1', 'rec2']
+subject = 'ACR_20'
+experiment = 'swi'
+recordings = ['swi-bl', 'swi']
 STORES = ["NNXr", "NNXo"]
 
 NCHANS = 16
-T_START = [0, 0]
-T_END = [0, 0]
-
+T_END = [8100, 8100]
+T_START = [8000, 8000]
 
 threshhold_params = [4, 10, 2]
 
 probe_spacing = 50
 analysis_version = ("ks2_5_no-drift-correction")
-out_dir = 'ssd-raid0'
-tag = None
 
-CHECK_SPREADSHEET = 'ON'
+
+CHECK_SPREADSHEET = 'OFF'
 CHECK_DATA_QUALITY = 'ON'
 # ------------------------------------------------------------------------
 #Run some checks
@@ -65,13 +63,7 @@ dry_run = False
 hyp_paths = []
 
 for STORE in STORES:
-    if out_dir == 'ssd-raid0':
-        output_dir = f'/ssd-raid0/analysis/acr_sorting/{subject}-{experiment}-{STORE}/' if tag is None else f'/ssd-raid0/analysis/acr_sorting/{subject}-{experiment}-{STORE}-{tag}/'
-    elif out_dir == 'nvme':
-        output_dir = f'/nvme/sorting/{subject}-{experiment}-{STORE}/' if tag is None else f'/nvme/sorting/{subject}-{experiment}-{STORE}-{tag}/'
-    else:
-        raise ValueError(f"out_dir {out_dir} not recognized") 
-
+    output_dir = f'/ssd-raid0/analysis/acr_sorting/{subject}-{experiment}-{STORE}-tstart-test/'
     tdt_folder_paths_and_sorting_output_dir_list = [(paths_to_concat, output_dir)]
     for (tdt_folder_paths, output_dir) in tdt_folder_paths_and_sorting_output_dir_list:
         run_pipeline_tdt(

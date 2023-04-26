@@ -4,21 +4,21 @@ import yaml
 import pandas as pd
 from sort_utils import check_sorting_thresholds, check_recs_and_times, check_probe_spacing
 
-subject = 'ACR_X'
-experiment = 'exp'
-recordings = ['rec1', 'rec2']
+subject = 'ACR_18'
+experiment = 'swisin'
+recordings = ['swisin-bl', 'swisin']
 STORES = ["NNXr", "NNXo"]
 
 NCHANS = 16
 T_START = [0, 0]
-T_END = [0, 0]
+T_END = [0, 101200]
 
 
-threshhold_params = [4, 10, 2]
+threshhold_params = [4, 8, 2]
 
 probe_spacing = 50
 analysis_version = ("ks2_5_no-drift-correction")
-out_dir = 'ssd-raid0'
+out_dir = 'nvme'
 tag = None
 
 CHECK_SPREADSHEET = 'ON'
