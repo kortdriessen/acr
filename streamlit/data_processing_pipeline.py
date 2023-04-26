@@ -278,18 +278,21 @@ if st.button('Update master_rec_quality.xlsx'):
     new_rec_quality = pd.concat([rec_quality, df], ignore_index=True) if not df.empty else rec_quality 
     
     #this updates the duration_match column for all important recs for each subject
-    for exp in important_recs[sub]:
-        if exp == 'stores':
-            continue
-        for rec in important_recs[sub][exp]:
-            for store in important_recs[sub]['stores']:
-                if 'NNXr' and 'NNXo' in important_recs[sub]['stores']:
-                    other = 'NNXo' if store == 'NNXr' else 'NNXr'
-                    diff = si['rec_times'][rec][f'{store}-duration'] - si['rec_times'][rec][f'{other}-duration']
-                else:
-                    diff = 0
-                ix = new_rec_quality.loc[new_rec_quality.subject == sub].loc[new_rec_quality.recording==rec].loc[new_rec_quality.store==store].index.values[0]
-                new_rec_quality.at[ix, 'duration_match'] = diff
+    for sub in important_recs.keys():
+        si = acr.info_pipeline.load_subject_info(sub)
+        for exp in important_recs[sub]:
+            if exp == 'stores':
+                continue
+            for rec in important_recs[sub][exp]:
+                for store in important_recs[sub]['stores']:
+                    if 'NNXr' and 'NNXo' in important_recs[sub]['stores']:
+                        other = 'NNXo' if store == 'NNXr' else 'NNXr'
+                        diff = si['rec_times'][rec][f'{store}-duration'] - si['rec_times'][rec][f'{other}-duration']
+                    else:
+                        diff = 0
+                    #st.write(f'{sub} {rec} {store} duration match = {diff} samples')
+                    ix = new_rec_quality.loc[new_rec_quality.subject == sub].loc[new_rec_quality.recording==rec].loc[new_rec_quality.store==store].index.values[0]
+                    new_rec_quality.at[ix, 'duration_match'] = diff
     
     #save the new_rec_quality sheet
     new_rec_quality.to_excel(recq_path, index=False)
@@ -301,7 +304,7 @@ st.markdown('---')
 st.markdown('# Process LFPs and Bandpower Data')
 st.write('Here we can generate the downsampled LFP data, and then once that is done, the bandpower data for this subject')
 
-if st.button('Process LFPs, Bandpower, Unit Dataframes'):
+if st.button('Process LFPs + Bandpower'):
     #First process the LFP data
     st.write('Processing LFPs')
     acr.info_pipeline.preprocess_and_save_all_recordings(subject, fs_target=400)
@@ -310,6 +313,8 @@ if st.button('Process LFPs, Bandpower, Unit Dataframes'):
     st.write('Processing Bandpower Data')
     acr.io.calc_and_save_bandpower_sets(subject, stores=stores, window_length=4, overlap=2)
 
+st.markdown('# Process Unit Dataframes')
+if st.button('Process Unit Dataframes'):
     #THen process the unit dataframes
     st.write('Processing Unit Dataframes')
     acr.units.save_all_spike_dfs(subject, drop_noise=True, stim=True)
