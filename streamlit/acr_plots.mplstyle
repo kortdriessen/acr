@@ -41,7 +41,7 @@ figure.subplot.bottom: 0.07     # the bottom of the subplots of the figure
 figure.subplot.hspace: 0.4    # the amount of height reserved for space between subplots, expressed as a fraction of the average axis height
 
 figure.figsize: 16, 11          # figure size in inches
-figure.dpi: 150                 # figure dots per inch
+figure.dpi: 100                 # figure dots per inch
 
 # Setting font sizes and spacing
 axes.labelsize: 18              # font size of the x and y labels
