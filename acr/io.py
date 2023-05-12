@@ -225,7 +225,6 @@ def load_raw_data(subject, recording, store, select=None, hypno=None):
         data = data.sel(select)
     if np.logical_and(recording not in list(data.coords.keys()), store not in list(data.coords.keys())):
         data = data.assign_coords({'recording': recording, 'store': store})
-        print(f'{recording} was missing recording and store coordinates, added them')
     
     if hypno:
         h = load_hypno(subject, recording)
