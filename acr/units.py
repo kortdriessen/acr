@@ -12,6 +12,11 @@ import os
 from on_off_detection import OnOffModel
 import on_off_detection as ood
 
+def sorting_path(subject, sort_id):
+    for n in os.listdir(f"/Volumes/opto_loc/Data/{subject}/sorting_data/{sort_id}/"):
+        if 'ks2_5' in n:
+            return f"/Volumes/opto_loc/Data/{subject}/sorting_data/{sort_id}/{n}/"
+
 def save_spike_df(subject, spike_df, sort_id):
     path = f"/Volumes/opto_loc/Data/{subject}/sorting_data/spike_dataframes/{sort_id}.parquet"
     spike_df.to_parquet(path, version="2.6")
@@ -21,7 +26,29 @@ def load_and_save_spike_dfs(subject, sort_ids, drop_noise=True, stim=False):
         df = single_probe_spike_df(subject, si, drop_noise=drop_noise, stim=stim)
         save_spike_df(subject, df, si)
 
-def save_all_spike_dfs(subject, drop_noise=True, stim=True):
+def update_data_path_for_phy(subject, sort_id):
+    output_dir_path = sorting_path(subject, sort_id)
+    params_dot_py_path = os.path.join(output_dir_path, 'params.py')
+    temp_wh_dot_dat_path = os.path.join(output_dir_path, 'temp_wh.dat')
+    with open(params_dot_py_path, 'r+') as file:
+        # Read in all the lines of the file
+        lines = file.readlines()
+
+        # Loop through the lines and find the one that defines dat_path
+        for i, line in enumerate(lines):
+            if 'dat_path' in line:
+                # Modify the line to set dat_path to a new value
+                lines[i] = f"dat_path = '{temp_wh_dot_dat_path}'\n"
+                break
+
+        # Move the file pointer to the beginning of the file and overwrite the file with the modified lines
+        file.seek(0)
+        file.writelines(lines)
+
+    # Close the file
+    file.close()
+
+def save_all_spike_dfs(subject, drop_noise=True, stim=False):
     """Looks through the subject's sorting_data folder and generates + saves all spike dataframes to the spike_dataframes folder which are not already present there."""
     sort_root = f"/Volumes/opto_loc/Data/{subject}/sorting_data/"
     if 'spike_dataframes' not in os.listdir(sort_root):
@@ -39,9 +66,9 @@ def save_all_spike_dfs(subject, drop_noise=True, stim=True):
                 continue
             if f'{f}.parquet' not in os.listdir(df_path): # if not saved, generate and save it
                 print(f'loading {f}')
-                stim = False if 'swi' in f else True
                 df = single_probe_spike_df(subject, f, drop_noise=drop_noise, stim=stim)
                 save_spike_df(subject, df, f)
+                update_data_path_for_phy(subject, f)
                 print(f'saved {f}')
 
 def get_sorting_recs(subject, sort_id):
@@ -74,11 +101,6 @@ def load_single_sorting_df(subject, sort_id, drop=None):
         spike_df = spike_df.drop(drop, axis=1)
     return spike_df
 
-
-def sorting_path(subject, sort_id):
-    for n in os.listdir(f"/Volumes/opto_loc/Data/{subject}/sorting_data/{sort_id}/"):
-        if 'ks2_5' in n:
-            return f"/Volumes/opto_loc/Data/{subject}/sorting_data/{sort_id}/{n}/"
 
 def info_to_spike_df(spike_df, info, sort_id):
     for cluster_id in info.cluster_id.values:
