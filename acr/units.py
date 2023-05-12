@@ -54,29 +54,25 @@ def get_sorting_recs(subject, sort_id):
         recs = [r.strip() for r in recs]
     return recs
 
-def load_spike_dfs(subject, sort_id=None):
+def load_single_sorting_df(subject, sort_id, drop=None):
     """
-    Load sorted spike dataframes
-    if sort_id is specified, only load that one
-    if sort_id is not specified, load all in sorting_data/spike_dataframes folder
+    Load a single saved sorting (which has already been saved as a parquet file)
+    
 
     Args:
-        subject (str): subject name
-        sort_id (optional): specific sort_id to load. Defaults to None.
+        - subject (str): subject name. 
+        - sort_id (str): specific sort_id to load.
+        - drop (list): list of columns to drop from the dataframe. Defaults to None.
 
     Returns:
-        spikes_df: spike dataframe or dictionary of spike dataframes, depending on sort_id
+        spike_df: spike dataframe (pandas)
     """
-    path = f"/Volumes/opto_loc/Data/{subject}/sorting_data/spike_dataframes/"
-    if sort_id:
-        key = sort_id + ".parquet"
-        spike_dfs = pd.read_parquet(path + key)
-    else:
-        spike_dfs = {}
-        for f in os.listdir(path):
-            sort_id = f.split(".")[0]
-            spike_dfs[sort_id] = pd.read_parquet(path + f)
-    return spike_dfs
+    df_root_path = f"/Volumes/opto_loc/Data/{subject}/sorting_data/spike_dataframes"
+    df_path = f'{df_root_path}/{sort_id}.parquet'
+    spike_df = pd.read_parquet(df_path)
+    if drop is not None:
+        spike_df = spike_df.drop(drop, axis=1)
+    return spike_df
 
 
 def sorting_path(subject, sort_id):
@@ -89,11 +85,14 @@ def info_to_spike_df(spike_df, info, sort_id):
         group = info[info.cluster_id == cluster_id].group.values[0]
         note = info[info.cluster_id == cluster_id].note.values[0]
         channel = info[info.cluster_id == cluster_id].ch.values[0]
+        amp = info[info.cluster_id == cluster_id].amp.values[0]
+        amplitude = info[info.cluster_id == cluster_id].Amplitude.values[0]
         spike_df.loc[spike_df["cluster_id"] == cluster_id, "group"] = group
         spike_df.loc[spike_df["cluster_id"] == cluster_id, "note"] = note
         spike_df.loc[spike_df["cluster_id"] == cluster_id, "channel"] = channel
+        spike_df.loc[spike_df["cluster_id"] == cluster_id, "amp"] = amp
+        spike_df.loc[spike_df["cluster_id"] == cluster_id, "Amplitude"] = amplitude
     spike_df.note.fillna("", inplace=True)
-    spike_df['exp'] = '-'.join(sort_id.split('-')[:-1])
     spike_df['probe'] = sort_id.split('-')[-1]
     return spike_df
 
@@ -216,28 +215,71 @@ def single_probe_spike_df(
         print("adding stim info")
         spike_df = add_stim_info(spike_df, subject)
     print("adding hypno")
-    spike_df = add_hypno(spike_df, subject, recordings)
+    #spike_df = add_hypno(spike_df, subject, recordings)
     return spike_df
 
-def get_sorting_stim_start(subject, exp, ):
-    """gives the time at which a stimulation started, in TOTAL time, as it would appear in a kilosort sorting. 
+def get_cluster_notes(df):
+    """returns a dataframe with the associated notes and group label for each cluster in a unit dataframe
 
     Args:
-        subject (str): subject name
-        exp (str): experiment name
+        df (_type_): the unit dataframe, note: should be probe-specific!
     """
-    sub_info = acr.info_pipeline.load_subject_info(subject)
-    stim_store = sub_info['stim-exps'][exp]
-    stim_start = pd.Timestamp( sub_info['stim_info'][exp][stim_store]['onsets'][0] )
-    exp_start = pd.Timestamp( sub_info['rec_times'][exp]['start'] )
-    recs = acr.info_pipeline.get_exp_recs(subject, exp)
-    time_to_stim = (stim_start - exp_start).total_seconds()
-    for rec in recs:
-        rec_start = pd.Timestamp( sub_info['rec_times'][rec]['start'] )
-        if rec_start < exp_start:
-            exp_start = rec_start
-            time_to_stim += sub_info['rec_times'][rec]['duration']
-    return time_to_stim
+    notes_df = pd.DataFrame()
+    notes_dic = {}
+    for i in df.cid_un():
+        note_val = df.cid(i).note.values_host[0]
+        notes_dic[str(i)] = note_val
+    notes_df = pd.DataFrame.from_dict(notes_dic, orient='index')
+    notes_df.columns = ['note']
+    group_labels = []
+    for i in df.cid_un():
+        group_labels.append(df.cid(i).group.values_host[0])
+    notes_df['group'] = group_labels
+    notes_df.index.name = 'cluster_id'
+    return notes_df
+
+def get_fr_by_cluster(df):
+    """loops through each cluster on each probe in the df, and returns a dictionary of the firing rate for each cluster
+
+    Args:
+        df (_type_): spike dataframe
+    """
+    fr = {}
+    probes = list(df.probe.unique().values_host)
+    for probe in probes:
+        fr[probe] = {}
+        clusters = df.prb(probe).cid_un()
+        start = pd.Timestamp(df.prb(probe).datetime.min())
+        end = pd.Timestamp(df.prb(probe).datetime.max())
+        total_time = (end - start).total_seconds()
+        for clus in clusters:
+            clus_name = str(clus)
+            fr[probe][clus_name] = len(df.prb(probe).cid(clus))/total_time
+    return fr
+
+def get_fr_suppression_by_cluster(df, pons, poffs, probes=['NNXr', 'NNXo']):
+    total_spike_rate = {}
+    total_pulse_on_time = 0
+    
+    for on, off in zip(pons, poffs): # this should get us an accurate measure for the total time that the pulses were on, which shouldn't vary by cluster or probe
+        total_pulse_on_time += (off - on).total_seconds()
+    
+    for probe in probes:
+        clusters = df.prb(probe).cid_un()
+        total_spike_rate[probe] = {}
+        for clus in clusters:
+            new_df = df.prb(probe).cid(clus)
+            clus_name = str(clus)
+            total_spike_rate[probe][clus_name] = 0
+            
+            for i in np.arange(0, len(pons)):
+                total_spike_rate[probe][clus_name] += new_df.ts(pons[i], poffs[i]).prb(probe).cluster_id.count() #this loops through every pulse, and adds the number of spikes during that pulse to the total spike count for that cluster
+            
+            total_spike_rate[probe][clus_name] = total_spike_rate[probe][clus_name]/total_pulse_on_time
+            del new_df
+
+    return total_spike_rate
+
 
 # ----------------------------------------- ON-OFF DETECTION ----------------------------------------------------------------------------------------
 def load_hypno_for_ood(subject, sort_id, state='NREM'):
