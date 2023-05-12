@@ -15,7 +15,7 @@ def hypno_info(hypno, title=''):
 
 subject = st.text_input("Enter a subject", "ACR_X")
 recording = st.text_input("Enter a recording", "sdpi")
-chunks = st.text_input("Enter chunks", 'chunk1/chunk2') # min, max, default
+chunks = st.text_input("Enter hypno tag (usually chunk number)", 'chunk1/chunk2') # min, max, default
 
 chunks = chunks.split('/') # split into list
 
