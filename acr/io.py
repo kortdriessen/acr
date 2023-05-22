@@ -164,7 +164,7 @@ def load_hypno_full_exp(subject, exp, corrections=True, float=False):
 
 # ---------------------------------------------------- Data + Spectral io --------------------------------------
 
-def calc_and_save_bandpower_sets(subject, stores=['NNXo', 'NNXr'], window_length=4, overlap=2):
+def calc_and_save_bandpower_sets(subject, stores=['NNXo', 'NNXr'], recordings=None, window_length=4, overlap=2):
     """
     NOTE: ONLY USE THIS IF BANDPOWER SETS NOT ALREADY CALCULATED
     NOTE: MUST HAVE DATA STORED IN SUBJECT FOLDER AS NETCDF FILE
@@ -173,13 +173,16 @@ def calc_and_save_bandpower_sets(subject, stores=['NNXo', 'NNXr'], window_length
     
     Args:
         subject (str): subject name
-        recordings (list): recordings
         stores (list): data stores to use
+        recordings (list): recordings, defaults to none, in which case all processed recordings in important recordings list are used
     Returns:
         Nothing - only used to save bandpower datasets to bandpower_data folder
     """
     pp_recs = aip.current_processed_recordings(subject)
     impt_recs = aip.get_impt_recs(subject)
+
+    if recordings is None:
+        recordings = [r for r in pp_recs if r in impt_recs]
 
     # make sure the bandpower_data folder exists
     root = f'/Volumes/opto_loc/Data/{subject}/'
@@ -191,9 +194,7 @@ def calc_and_save_bandpower_sets(subject, stores=['NNXo', 'NNXr'], window_length
     bp_root = f'/Volumes/opto_loc/Data/{subject}/bandpower_data/'
     bp_recs = os.listdir(bp_root)
     for store in stores:
-        for recording in pp_recs:
-            if recording not in impt_recs:
-                continue
+        for recording in recordings:
             if f'{recording}-{store}.nc' in bp_recs:
                 print(f'{recording}-{store} already calculated')
                 continue
@@ -292,10 +293,10 @@ def load_concat_bandpower(subject, recordings, stores, hypno=True, select=None):
         bp_cx_store = xr.concat(bp_recs, dim='datetime')
         bp_stores.append(bp_cx_store)
     bp = xr.concat(bp_stores, dim='store')
-    return bp
+    return bp.sel(select)
 
 def load_concat_raw_data(subject, recordings, stores, hypno=True, select=None):
-    """loads and concatenates bandpower data for a list of recordings and stores
+    """loads and concatenates raw data for a list of recordings and stores
 
     Args:
         subject (str): subject name
