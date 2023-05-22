@@ -9,6 +9,6 @@ setup(
     author_email="driessen2@wisc.edu",
     license="MIT",
     packages=["acr"],
-    install_requires=["streamlit", "plotly", "openpyxl", 'jupyterlab', 'ipykernel'],  # needs kdephys
+    install_requires=["streamlit", "plotly", "openpyxl", 'jupyterlab', 'ipykernel', 'h5py', 'python-benedict', 'statsmodels'],  # needs kdephys, on_off detection
     zip_safe=False,
 )
