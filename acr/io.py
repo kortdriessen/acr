@@ -154,7 +154,8 @@ def load_hypno_full_exp(subject, exp, corrections=True, float=False):
         for rec in h.keys():
             h[rec] = h[rec].as_float()
         hypno_final =  FloatHypnogram(pd.concat(h.values()))
-        hypno_final = hu.standard_hypno_corrections(hypno_final.reset_index(drop=True))
+        if corrections == True:
+            hypno_final = hu.standard_hypno_corrections(hypno_final.reset_index(drop=True))
         return hypno_final
     else:
         hypno_final =  DatetimeHypnogram(pd.concat(h.values()))

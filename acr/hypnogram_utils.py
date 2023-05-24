@@ -277,7 +277,13 @@ def all_configs_to_archive(subject):
     return
 
 def drop_empty_bouts(hyp):
-    zd = hyp.loc[hyp.duration == pd.to_timedelta(0)]
+    if type(hyp['duration'][0]) == pd.Timedelta:
+        zd = hyp.loc[hyp.duration == pd.to_timedelta(0)]
+    elif type(hyp['duration'][0]) == np.float64:
+        zd = hyp.loc[hyp.duration == 0]
+    else:
+        print('duration field is not a float or timedelta, using float64')
+        zd = hyp.loc[hyp.duration == 0]
     for ixp in zd.index:
         zp = hyp.index.get_loc(ixp)
         hyp.drop(hyp.index[zp], inplace=True)

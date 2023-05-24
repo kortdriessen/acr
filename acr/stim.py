@@ -45,6 +45,17 @@ def get_sorting_stim_start(subject, exp):
             time_to_stim += sub_info['rec_times'][rec]['duration']
     return time_to_stim
 
+def get_sorting_time_from_dt(subject, exp, dt, dt_rec):
+    sub_info = acr.info_pipeline.load_subject_info(subject) 
+    dt_rec_start = pd.Timestamp( sub_info['rec_times'][dt_rec]['start'] )
+    recs = acr.info_pipeline.get_exp_recs(subject, exp)
+    time_to_dt = (dt - dt_rec_start).total_seconds()
+    for rec in recs:
+        rec_start = pd.Timestamp( sub_info['rec_times'][rec]['start'] )
+        if rec_start < dt_rec_start:
+            time_to_dt += sub_info['rec_times'][rec]['duration']
+    return time_to_dt
+
 def get_total_spike_rate(df, pons, poffs, probes=['NNXr', 'NNXo']):
     """Get the total spike rate (during both pulse-ON and pulse-OFF) for each probe in a dataframe, given a list of pulse on and off times
 
