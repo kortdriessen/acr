@@ -26,6 +26,23 @@ def load_and_save_spike_dfs(subject, sort_ids, drop_noise=True, stim=False):
         df = single_probe_spike_df(subject, si, drop_noise=drop_noise, stim=stim)
         save_spike_df(subject, df, si)
 
+def load_info_df(subject, sort_ids):
+    info_dfs = []
+    for sort_id in sort_ids:
+        probe = sort_id.split('-')[1]
+        assert probe == 'NNXr' or probe == 'NNXo'
+        path = sorting_path(subject, sort_id)
+        info_path = os.path.join(path, 'cluster_info.tsv')
+        idf = pd.read_csv(info_path, sep="\t")
+        idf = idf.loc[idf.group != 'noise']
+        idf.note.fillna("", inplace=True)
+        new_note = idf['note'].str.split('/')
+        idf['note'] = new_note
+        idf['probe'] = probe
+        info_dfs.append(idf)
+    idf_final = pd.concat(info_dfs)
+    return idf_final
+
 def update_data_path_for_phy(subject, sort_id):
     output_dir_path = sorting_path(subject, sort_id)
     params_dot_py_path = os.path.join(output_dir_path, 'params.py')
@@ -356,7 +373,7 @@ def run_ood(trains, clust_ids, hypno, tmax=None, save=False):
     "init_mu": None,  # ~ OFF rate. Fitted to data if None
     "init_alphaa": None,  # ~ difference between ON and OFF rate. Fitted to data if None
     "init_betaa": None,  # ~ Weight of recent history firing rate. Fitted to data if None,
-    "gap_threshold": .04,  # Merge active states separated by less than gap_threhsold
+    "gap_threshold": .02,  # Merge active states separated by less than gap_threhsold
     }
 
     mod = OnOffModel(trains, tmax, clust_ids, method='hmmem', params=GLOBAL_ON_OFF_DETECTION_PARAMS, bouts_df=hypno)
@@ -428,6 +445,8 @@ def load_oodf(subject, sort_id=[]):
         subject (str): subject name
         sort_id (list, optional): list of sort_id's Defaults to [].
     """
+    if type(sort_id) == str:
+        sort_id = [sort_id]
     path = f"/Volumes/opto_loc/Data/{subject}/sorting_data/on-off_dataframes/"
     sdfs = []
     for sid in sort_id:
