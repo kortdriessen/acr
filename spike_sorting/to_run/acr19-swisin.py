@@ -8,26 +8,26 @@ from sort_utils import (
     check_probe_spacing,
 )
 
-subject = "ACR_18"
+subject = "ACR_19"
 experiment = "swisin"
-recordings = ["swisin-bl", "swisin"]
+recordings = ["swisin-bl", "swisin", "swisin-post"]
 STORES = ["NNXr", "NNXo"]
 
 NCHANS = 16
-T_START = [0, 0]
-T_END = [0, 101200]
+T_START = [0, 0, 0]
+T_END = [0, 0, 0]
 
 
 threshhold_params = [4, 8, 2]
 
 probe_spacing = 50
 analysis_version = "ks2_5_no-drift-correction"
-out_dir = "nvme"
+out_dir = "ssd-raid0"
 tag = None
 
 CHECK_SPREADSHEET = "ON"
 CHECK_DATA_QUALITY = "ON"
-# ------------------------------------------------------------------------
+# -------------------------------------------------------------
 # Run some checks
 check_sorting_thresholds(threshhold_params)
 check_probe_spacing(probe_spacing)
