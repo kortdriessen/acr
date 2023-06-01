@@ -15,6 +15,7 @@ from benedict import benedict
 import datetime
 from acr.utils import raw_data_root, materials_root, opto_loc_root
 
+
 def load_rec_quality():
     path = f"{materials_root}master_rec_quality.xlsx"
     return pd.read_excel(path)
@@ -24,7 +25,9 @@ def subject_params(subject):
     path = f"{materials_root}{subject}/subject_params.py"
     sub_params = SourceFileLoader("sub_params", path).load_module()
     from sub_params import params
+
     return params
+
 
 def load_subject_info(subject):
     path = f"{materials_root}{subject}/subject_info.yml"
@@ -32,10 +35,12 @@ def load_subject_info(subject):
         data = yaml.safe_load(f)
     return benedict(data)
 
+
 def load_dup_info(subject, rec, store):
     path = f"{materials_root}duplication_info.yaml"
-    dup_info = yaml.safe_load(open(path, 'r'))
+    dup_info = yaml.safe_load(open(path, "r"))
     return benedict(dup_info[subject][rec][store])
+
 
 def get_all_tank_keys(root, sub):
     tanks = []
@@ -67,14 +72,17 @@ def get_time_full_load(path, store):
     times["end"] = str(end)
     return times
 
+
 def get_duration_from_store(path, store):
     data = tdt.read_block(path, evtype=["streams"], channel=[1], store=store)
     num_samples = len(data.streams[store].data)
     fs = data.streams[store].fs
     return float(num_samples / fs)
 
+
 def time_sanity_check(time):
     return time > np.datetime64("2018-01-01")
+
 
 def no_end_check(block):
     """returns True if block.info.stop_date is nan, returns False otherwise
@@ -86,6 +94,7 @@ def no_end_check(block):
         return False
     else:
         return math.isnan(block.info.stop_date)
+
 
 def get_rec_times(sub, exps, time_stores=["NNXo", "NNXr"], backup_store=["EMGr"]):
     """Gets durations, starts, and ends of recording times for set of experiments.
@@ -106,15 +115,15 @@ def get_rec_times(sub, exps, time_stores=["NNXo", "NNXr"], backup_store=["EMGr"]
         print(f"streams for {exp} are {streams}")
         i = d.info
         start = np.datetime64(i.start_date)
-        
+
         if no_end_check(d):
-            block_duration = get_duration_from_store(p, 'NNXr')
-            end = start + pd.Timedelta(block_duration, 's')
+            block_duration = get_duration_from_store(p, "NNXr")
+            end = start + pd.Timedelta(block_duration, "s")
             end = np.datetime64(end)
         elif no_end_check(d) == False:
             end = np.datetime64(i.stop_date)
             block_duration = float((end - start) / np.timedelta64(1, "s"))
-        
+
         new_t1 = int(block_duration - 30)
 
         if not time_sanity_check(end):
@@ -140,6 +149,7 @@ def get_rec_times(sub, exps, time_stores=["NNXo", "NNXr"], backup_store=["EMGr"]
             times[exp][ts + "-duration"] = total_time
             times[exp][ts + "-end"] = str(start + pd.Timedelta(total_time, unit="s"))
     return times
+
 
 def rec_time_comparitor(subject):
     """
@@ -184,15 +194,15 @@ def subject_info_gen(subject):
     The params dictionary should have the following properties:
     subject:
         subject name
-    raw_stores: 
+    raw_stores:
         list of important data stores, to be used in preprocessing of important recordings (all channels from all raw stores)
-    lite_stores: 
+    lite_stores:
         list of less important data stores, to heavily downsample and save only a subset of channels
-    channels: 
+    channels:
         a dictionary whose keys are values from stores, and values are the channels to use for each store
-    stim-exps: 
+    stim-exps:
         dictionary where the keys are stim experiments, and the values are stores to get the onsets/offsets from (e.g. 'Wav2' or 'Pu1_')
-    time_stores: 
+    time_stores:
         list of stores to use to calculate start and end times. Defaults to ['NNXo', 'NNXr'].
     """
     params = subject_params(subject)
@@ -217,7 +227,7 @@ def subject_info_gen(subject):
     data["raw_stores"] = params["raw_stores"]
     data["lite_stores"] = params["lite_stores"]
     data["recordings"] = recordings
-    
+
     data["stim-exps"] = params["stim-exps"]
     with open(path, "w") as f:
         yaml.dump(data, f)
@@ -225,21 +235,22 @@ def subject_info_gen(subject):
     stim_info_to_yaml(subject, params["stim-exps"])
     return
 
+
 def update_subject_info(subject, impt_only=True):
     """
     This function will load a subject's params dictionary from subject_params.py, and then update the subject_info.yml file.
     The params dictionary should have the following properties:
     subject:
         subject name
-    raw_stores: 
+    raw_stores:
         list of important data stores, to be used in preprocessing of important recordings (all channels from all raw stores)
-    lite_stores: 
+    lite_stores:
         list of less important data stores, to heavily downsample and save only a subset of channels
-    channels: 
+    channels:
         a dictionary whose keys are values from stores, and values are the channels to use for each store
-    stim-exps: 
+    stim-exps:
         dictionary where the keys are stim experiments, and the values are stores to get the onsets/offsets from (e.g. 'Wav2' or 'Pu1_')
-    time_stores: 
+    time_stores:
         list of stores to use to calculate start and end times. Defaults to ['NNXo', 'NNXr'].
     """
 
@@ -252,15 +263,15 @@ def update_subject_info(subject, impt_only=True):
     impt_recs = get_impt_recs(subject)
     new_recs = []
     for rec in recordings:
-        if rec not in data['recordings']:
-            if impt_only==True:
+        if rec not in data["recordings"]:
+            if impt_only == True:
                 if rec in impt_recs:
-                    print(f'adding important rec: {rec}')
+                    print(f"adding important rec: {rec}")
                     new_recs.append(rec)
             if impt_only == False:
-                print(f'adding NON-important rec {rec}')
+                print(f"adding NON-important rec {rec}")
                 new_recs.append(rec)
-    
+
     times = get_rec_times(
         subject,
         new_recs,
@@ -268,22 +279,25 @@ def update_subject_info(subject, impt_only=True):
         backup_store=[params["lite_stores"][0]],
     )
     for time_key in list(times.keys()):
-        data['rec_times'][time_key] = times[time_key]
-    
+        data["rec_times"][time_key] = times[time_key]
+
     paths = acr.io.get_acr_paths(subject, recordings)
-    data['paths'] = paths
+    data["paths"] = paths
     data["raw_stores"] = params["raw_stores"]
     data["lite_stores"] = params["lite_stores"]
-    data["subject"] = subject 
+    data["subject"] = subject
     data["channels"] = params["channels"]
     data["recordings"] = recordings
     data["stim-exps"] = params["stim-exps"]
 
     with open(path, "w") as f:
-        yaml.dump(data, f) # write the new subject_info file
-    rec_time_comparitor(subject) # assess the rec_times for all recordings
-    stim_info_to_yaml(subject, params["stim-exps"]) # add the stim_info (automatically only loads new recordings, old ones are kept)
+        yaml.dump(data, f)  # write the new subject_info file
+    rec_time_comparitor(subject)  # assess the rec_times for all recordings
+    stim_info_to_yaml(
+        subject, params["stim-exps"]
+    )  # add the stim_info (automatically only loads new recordings, old ones are kept)
     return
+
 
 def save_subject_info(subject, info_dict):
     """
@@ -294,36 +308,38 @@ def save_subject_info(subject, info_dict):
         yaml.dump(info_dict, f)
     return
 
+
 def redo_subject_info(subject, recs=[]):
     "this deletes a recording entirely from the subject info dict, and then forces it to recalculate the rec_times and stim_info for each recording."
     if len(recs) == 0:
-        print('No recordings specified!')
+        print("No recordings specified!")
         return
     path = f"{materials_root}{subject}/subject_info.yml"
     with open(path) as f:
         si = yaml.load(f, Loader=yaml.FullLoader)
 
     for rec in recs:
-        assert rec in si['recordings'], f'{rec} not in {subject} recordings!'
-        #first remove each rec from the 'recordings' list:
-        si['recordings'].remove(rec)
+        assert rec in si["recordings"], f"{rec} not in {subject} recordings!"
+        # first remove each rec from the 'recordings' list:
+        si["recordings"].remove(rec)
 
-        #then remove each rec from the 'rec_times' dict:
-        si['rec_times'].pop(rec)
+        # then remove each rec from the 'rec_times' dict:
+        si["rec_times"].pop(rec)
 
-        #and from the 'paths' dict for completeness:
-        si['paths'].pop(rec)
+        # and from the 'paths' dict for completeness:
+        si["paths"].pop(rec)
 
-        #Then remove each rec from 'stim_info' and 'stim_exps', if it exists:
-        if rec in si['stim_info'].keys():
-            si['stim_info'].pop(rec)
-        if rec in si['stim-exps'].keys():
-            si['stim-exps'].pop(rec)
-    #then resave the subject info:
+        # Then remove each rec from 'stim_info' and 'stim_exps', if it exists:
+        if rec in si["stim_info"].keys():
+            si["stim_info"].pop(rec)
+        if rec in si["stim-exps"].keys():
+            si["stim-exps"].pop(rec)
+    # then resave the subject info:
     acr.info_pipeline.save_subject_info(subject, si)
-    #now we update the subject_info file, which should force it to recalculate rec_times and stim_info for each rec:
+    # now we update the subject_info file, which should force it to recalculate rec_times and stim_info for each rec:
     acr.info_pipeline.update_subject_info(subject)
     return
+
 
 def preprocess_and_save_recording(subject, rec, fs_target=400):
     """
@@ -340,7 +356,6 @@ def preprocess_and_save_recording(subject, rec, fs_target=400):
     raw_data = {}
     path = info["paths"][rec]
     t2 = info["rec_times"][rec]["duration"]
-    
 
     for store in info["raw_stores"]:
         raw_data[rec + "-" + store] = kx.io.get_data(
@@ -369,6 +384,7 @@ def preprocess_and_save_recording(subject, rec, fs_target=400):
         kx.io.save_dataarray(dec_data[key], save_path)
     return
 
+
 def preprocess_and_save_all_recordings(subject, fs_target=400):
     all_recs = get_impt_recs(subject)
     already_done = current_processed_recordings(subject)
@@ -378,6 +394,7 @@ def preprocess_and_save_all_recordings(subject, fs_target=400):
             preprocess_and_save_recording(subject, rec, fs_target=fs_target)
     return
 
+
 def prepro_lite(subject, rec, fs_target=100, t1=0, t2=0):
     """
     * Requires an updated subject_info file *
@@ -386,7 +403,7 @@ def prepro_lite(subject, rec, fs_target=100, t1=0, t2=0):
     Channels are specified in the subject_info.yml file.
     Stores to use are defined by lite_stores in the subject_info.yml file.
     """
-    
+
     path = f"{materials_root}{subject}/subject_info.yml"
     with open(path) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
@@ -575,21 +592,23 @@ def stim_info_to_yaml(subject, exps):
     """
 
     path = f"{materials_root}{subject}/subject_info.yml"
-    #info = load_subject_info(subject)
+    # info = load_subject_info(subject)
     with open(path) as f:
         info = yaml.load(f, Loader=yaml.FullLoader)
     stim_info = {}
 
     if "stim_info" not in info.keys():
         info["stim_info"] = {}
-    
+
     for exp in exps:
         exp = str(exp)
-        if exp in info['stim_info']: # check if recording has already been processed. 
-            print(f'stim info for {exp} already processed. Skipping...')
+        if exp in info["stim_info"]:  # check if recording has already been processed.
+            print(f"stim info for {exp} already processed. Skipping...")
             continue
         stim_info[exp] = {}
-        assert type(exps[exp]) == list, f"stores for each experiment must be a list of stores to use. {exp} is not a list."
+        assert (
+            type(exps[exp]) == list
+        ), f"stores for each experiment must be a list of stores to use. {exp} is not a list."
         for store in exps[exp]:
             if store == "Wav2":
                 wav2_up = get_wav2_up_data(subject, exp)
@@ -601,7 +620,7 @@ def stim_info_to_yaml(subject, exps):
                 stim_info[exp][store] = {}
                 stim_info[exp][store]["onsets"] = on_str
                 stim_info[exp][store]["offsets"] = off_str
-            elif store == 'Wavt':
+            elif store == "Wavt":
                 wavt_up = get_wavt_up_data(subject, exp)
                 on, off = get_wavt_on_and_off(wavt_up)
                 on_list = list(on)
@@ -611,7 +630,7 @@ def stim_info_to_yaml(subject, exps):
                 stim_info[exp][store] = {}
                 stim_info[exp][store]["onsets"] = on_str
                 stim_info[exp][store]["offsets"] = off_str
-            elif store in ['Bttn', 'Pu1_', 'Pu2_', 'Pu3_']:
+            elif store in ["Bttn", "Pu1_", "Pu2_", "Pu3_"]:
                 on, off = epoc_extractor(subject, exp, store)
                 on_list = list(on)
                 on_str = [str(x) for x in on_list]
@@ -620,13 +639,15 @@ def stim_info_to_yaml(subject, exps):
                 stim_info[exp][store] = {}
                 stim_info[exp][store]["onsets"] = on_str
                 stim_info[exp][store]["offsets"] = off_str
-    
-    if 'stim_info' not in info: # make sure stim_info sectio of subject_info.yml exists
-        info['stim_info'] = {}
+
+    if "stim_info" not in info:  # make sure stim_info sectio of subject_info.yml exists
+        info["stim_info"] = {}
     for exp in stim_info:
-        info["stim_info"][exp] = stim_info[exp] # add the new stim info to subject_info.yml
+        info["stim_info"][exp] = stim_info[
+            exp
+        ]  # add the new stim info to subject_info.yml
     with open(path, "w") as f:
-        yaml.dump(info, f) # save subject_info.yml
+        yaml.dump(info, f)  # save subject_info.yml
     return
 
 
@@ -666,6 +687,7 @@ def get_wavt_on_and_off(wavt_up):
     ax.set_xlim(ons[0] - pd.Timedelta(1, "s"), offs[-1] + pd.Timedelta(1, "s"))
     return ons, offs
 
+
 def prepro_test(subject, target=400, t1=0, t2=10, type="full"):
     try:
         if type == "full":
@@ -686,26 +708,28 @@ def current_processed_recordings(subject):
     root = f"{opto_loc_root}{subject}/"
     for f in os.listdir(root):
         if f.endswith(".nc"):
-            name = f.split('-')[:-1]
-            rec_name = '-'.join(name)
+            name = f.split("-")[:-1]
+            rec_name = "-".join(name)
             processed.append(rec_name)
     return np.unique(processed)
 
+
 def get_impt_recs(subject):
     """returns a list of all recordings (under all experiments) from the important_recs.yaml file"""
-    important_recs = yaml.safe_load(open(f'{materials_root}important_recs.yaml', 'r'))
+    important_recs = yaml.safe_load(open(f"{materials_root}important_recs.yaml", "r"))
     impt_recs = important_recs[subject]
     recs = []
     for exp in impt_recs:
-        if exp == 'stores':
+        if exp == "stores":
             continue
         for rec in impt_recs[exp]:
             recs.append(rec)
     return recs
 
+
 def get_exp_recs(subject, exp):
     """returns a list of all recordings (under a single experiment) from the important_recs.yaml file"""
-    important_recs = yaml.safe_load(open(f'{materials_root}important_recs.yaml', 'r'))
+    important_recs = yaml.safe_load(open(f"{materials_root}important_recs.yaml", "r"))
     impt_recs = important_recs[subject]
     recs = []
     for rec in impt_recs[exp]:
