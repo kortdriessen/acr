@@ -8,17 +8,17 @@ from sort_utils import (
     check_probe_spacing,
 )
 
-subject = "ACR_X"
-experiment = "exp"
-recordings = ["rec1", "rec2"]
+subject = "ACR_14"
+experiment = "swi"
+recordings = ["swi-bl", "swi-sd", "swi"]
 STORES = ["NNXr", "NNXo"]
 
 NCHANS = 16
-T_START = [0, 0]
-T_END = [0, 0]
+T_START = [0, 0, 0]
+T_END = [0, 0, 0]
 
 
-threshhold_params = [4, 10, 2]
+threshhold_params = [4, 8, 2]
 
 probe_spacing = 50
 analysis_version = "ks2_5_no-drift-correction"
