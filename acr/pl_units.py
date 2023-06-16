@@ -42,6 +42,8 @@ def load_spikes_polars(
             "amp",
             "Amplitude",
         ]
+    if cols2drop == 0:
+        cols2drop = []
     path = f"/Volumes/opto_loc/Data/{subject}/sorting_data/spike_dataframes/"
     sdfs = []
     for sid in sort_id:
@@ -207,6 +209,15 @@ def get_state_firing_rates(df, hyp):
     return wake_frs, nrem_frs, rem_frs
 
 
+def get_state_specific_unit_df(df, hyp, state):
+    hyp = hyp.st(state)
+    final_df = pl.DataFrame()
+    for bout in hyp.itertuples():
+        bout_df = df.ts(bout.start_time, bout.end_time)
+        final_df = pl.concat([final_df, bout_df])
+    return final_df
+
+
 def get_rel_fr_df(
     df,
     hyp,
@@ -216,6 +227,7 @@ def get_rel_fr_df(
     t1=None,
     t2=None,
     over_bouts=False,
+    return_early=False,
 ):
     """gets the firing rate (either by probe or cluster) relative to the baseline firing rate in a specified state
 
@@ -245,6 +257,8 @@ def get_rel_fr_df(
             bl_frs_by_probe = bl_frs.frates().groupby(["probe", "cluster_id"]).mean()
         else:
             bl_frs_by_probe = bl_frs.groupby(["probe", "cluster_id"]).sum()
+            if return_early == True:
+                return bl_frs_by_probe
             bl_frs_by_probe = bout_duration_similarity_check(
                 bl_frs_by_probe, col="bout_duration"
             )
@@ -270,6 +284,8 @@ def get_rel_fr_df(
         bl_frs_by_cluster = bl_frs_by_cluster.with_columns(
             (pl.col("count") / pl.col("bout_duration")).alias("fr")
         ).drop("count", "bout_duration")
+        if return_early == True:
+            return bl_frs_by_cluster
         fr_window = df.groupby_dynamic(
             "datetime",
             every=window,
@@ -331,15 +347,32 @@ def fr_arbitrary_bout(df, t1, t2, by="cluster_id"):
     return fr_bout
 
 
+def time_zones_to_unit_df(df, t1, t2, label):
+    assert type(df) == pl.DataFrame
+    df = df.to_pandas()
+    df.loc[(df.datetime >= t1) & (df.datetime < t2), "time_zone"] = label
+    return pl.from_pandas(df)
+
+
 ### ---------------------------------------------- Specialized Plotting Functions --------------------------------------------------- ###
 
 
-def plot_fr_by_probe(fr_rel, hyp):
-    f, ax = plt.subplots()
-    sns.lineplot(data=fr_rel, x="datetime", y="fr_rel", hue="probe", ax=ax)
-    kp.shade_hypno_for_me(hyp, ax)
+def plot_fr_by_probe(fr_rel, hyp, ax=None, color=False):
+    ax = kp.check_ax(ax)
+    if color == False:
+        sns.lineplot(data=fr_rel, x="datetime", y="fr_rel", hue="probe", ax=ax)
+    else:
+        sns.lineplot(
+            data=fr_rel,
+            x="datetime",
+            y="fr_rel",
+            hue="probe",
+            palette=["blue", "black"],
+            ax=ax,
+        )
+    ax = kp.shade_hypno_for_me(hyp, ax)
     ax = kp.add_light_schedule(fr_rel.light_schedule(), ax=ax)
-    return f, ax
+    return ax
 
 
 def plot_fr_by_cluster(fr_rel, hyp):
