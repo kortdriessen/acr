@@ -21,12 +21,12 @@ def gen_config(
     exp="",
     chans=["EMGr-1", "EEG_-1", "EEG_-2", "LFP_-2", "LFP_-6", "LFP_-10", "LFP_-14"],
 ):
-    """Generates config files for sleep scoring, saves them in config-files directory of subject's materials folder. 
-    
+    """Generates config files for sleep scoring, saves them in config-files directory of subject's materials folder.
+
     Requires:
         - subject_info.yml needs to be updated
         - template config file needs to be in config-files directory
-        
+
     Args:
         subject (str, optional): subject name. Defaults to "".
         chunks (int, optional): number of chunks to generate. Defaults to 6.
@@ -59,7 +59,7 @@ def gen_config(
         # Set the channels
         data["datasets"][0]["chanList"] = chans
         # Set the times
-        tend = ((rel_num+1) * chunk_length) + start_time
+        tend = ((rel_num + 1) * chunk_length) + start_time
         data["tStart"] = tend - chunk_length
         data["tEnd"] = tend
         # Save the file with a new name based on the actual subject, experiment, and chunk
@@ -276,13 +276,14 @@ def all_configs_to_archive(subject):
         change_config_path_to_archive(f)
     return
 
+
 def drop_empty_bouts(hyp):
-    if type(hyp['duration'][0]) == pd.Timedelta:
+    if type(hyp["duration"][0]) == pd.Timedelta:
         zd = hyp.loc[hyp.duration == pd.to_timedelta(0)]
-    elif type(hyp['duration'][0]) == np.float64:
+    elif type(hyp["duration"][0]) == np.float64:
         zd = hyp.loc[hyp.duration == 0]
     else:
-        print('duration field is not a float or timedelta, using float64')
+        print("duration field is not a float or timedelta, using float64")
         zd = hyp.loc[hyp.duration == 0]
     for ixp in zd.index:
         zp = hyp.index.get_loc(ixp)
@@ -290,97 +291,119 @@ def drop_empty_bouts(hyp):
     hyp.reset_index(inplace=True, drop=True)
     return hyp
 
+
 def remove_unsure_bouts(hyp):
-    #iterate through all bouts
+    # iterate through all bouts
     flt = True if type(hyp.iloc[0].start_time) == np.float64 else False
-    for bout in hyp.loc[hyp.state=='Unsure'].itertuples():
-        ix = bout.Index # gets the index label
-        pos = hyp.index.get_loc(ix) # gets the actual position in the dataframe using the label
-        
+    for bout in hyp.loc[hyp.state == "Unsure"].itertuples():
+        ix = bout.Index  # gets the index label
+        pos = hyp.index.get_loc(
+            ix
+        )  # gets the actual position in the dataframe using the label
+
         # if the bout is the last one in the entire hypnogram, remove it
         if ix == hyp.index.max():
             hyp.drop(hyp.index[pos], inplace=True)
             continue
 
-        #assert that neither neighboring bout is unsure
-        assert hyp.iloc[pos-1].state != 'Unsure', f'bout before Unsure is Unsure - Not allowed. index = {ix}, position = {pos}'
-        assert hyp.iloc[pos+1].state != 'Unsure', f'bout after Unsure is Unsure - Not allowed. index = {ix}, position = {pos}'
+        # assert that neither neighboring bout is unsure #TODO: do I actually need these next two lines?
+        # assert hyp.iloc[pos-1].state != 'Unsure', f'bout before Unsure is Unsure - Not allowed. index = {ix}, position = {pos}'
+        # assert hyp.iloc[pos+1].state != 'Unsure', f'bout after Unsure is Unsure - Not allowed. index = {ix}, position = {pos}'
 
         # if the duration of the unsure state is greater than 4 secconds, keep it
-        
-        bout_duration = (bout.end_time - bout.start_time) if flt else (bout.end_time - bout.start_time).total_seconds()
+        bout_duration = (
+            (bout.end_time - bout.start_time)
+            if flt
+            else (bout.end_time - bout.start_time).total_seconds()
+        )
         if bout_duration > 4:
             continue
 
-        # if both states surrounding the unsure are the same, remove the unsure and merge into the previous bout.
-        if hyp.iloc[pos-1].state == hyp.iloc[pos+1].state:
+        # if both states surrounding the unsure are the same, remove the unsure and merge into the previous bout. #TODO: this is dangerous!
+        if hyp.iloc[pos - 1].state == hyp.iloc[pos + 1].state:
             prev = False
             nxt = False
-            if hyp.iloc[pos].start_time == hyp.iloc[pos-1].end_time:
+            if hyp.iloc[pos].start_time == hyp.iloc[pos - 1].end_time:
                 prev = True
-            if hyp.iloc[pos].end_time == hyp.iloc[pos+1].start_time:
+            if hyp.iloc[pos].end_time == hyp.iloc[pos + 1].start_time:
                 nxt = True
-            assert prev == True, f'previous bout is not adjacent to unsure bout. Unsure bout starts at {bout.start_time} and previous bout ends at {hyp.iloc[pos-1].end_time}. Index = {ix}, position = {pos}'
-            new_end = hyp.iloc[pos]['end_time']
-            hyp.at[hyp.index[pos-1], 'end_time'] = new_end
-            hyp.at[hyp.index[pos-1], 'duration'] = hyp.iloc[pos-1]['end_time'] - hyp.iloc[pos-1]['start_time'] #reset duration field
+            assert (
+                prev == True
+            ), f"previous bout is not adjacent to unsure bout. Unsure bout starts at {bout.start_time} and previous bout ends at {hyp.iloc[pos-1].end_time}. Index = {ix}, position = {pos}"
+            new_end = hyp.iloc[pos]["end_time"]
+            hyp.at[hyp.index[pos - 1], "end_time"] = new_end
+            hyp.at[hyp.index[pos - 1], "duration"] = (
+                hyp.iloc[pos - 1]["end_time"] - hyp.iloc[pos - 1]["start_time"]
+            )  # reset duration field
             row = hyp.index[pos]
-            #next_row = h.index[pos+1]
+            # next_row = h.index[pos+1]
             hyp.drop(row, inplace=True)
             continue
 
         # if the states surrounding the unsure are different, need to figure out if the merge should happen with the previous or next bout
-        if hyp.iloc[pos-1].state != hyp.iloc[pos+1].state:
+        if hyp.iloc[pos - 1].state != hyp.iloc[pos + 1].state:
             prev = False
             nxt = False
-            if hyp.iloc[pos].start_time == hyp.iloc[pos-1].end_time:
+            if hyp.iloc[pos].start_time == hyp.iloc[pos - 1].end_time:
                 prev = True
-            if hyp.iloc[pos].end_time == hyp.iloc[pos+1].start_time:
+            if hyp.iloc[pos].end_time == hyp.iloc[pos + 1].start_time:
                 nxt = True
-        
-            assert prev or nxt == True, 'neither previous nor next bout is adjacent to unsure bout'
 
-            if prev: #merge with previous bout, even if nxt is also True
-                new_end = hyp.iloc[pos]['end_time']
-                hyp.at[hyp.index[pos-1], 'end_time'] = new_end
-                hyp.at[hyp.index[pos-1], 'duration'] = hyp.iloc[pos-1]['end_time'] - hyp.iloc[pos-1]['start_time'] #reset duration field
+            assert (
+                prev or nxt == True
+            ), "neither previous nor next bout is adjacent to unsure bout"
+
+            if prev:  # merge with previous bout, even if nxt is also True
+                new_end = hyp.iloc[pos]["end_time"]
+                hyp.at[hyp.index[pos - 1], "end_time"] = new_end
+                hyp.at[hyp.index[pos - 1], "duration"] = (
+                    hyp.iloc[pos - 1]["end_time"] - hyp.iloc[pos - 1]["start_time"]
+                )  # reset duration field
                 hyp.drop(hyp.index[pos], inplace=True)
                 continue
-            if prev == False and nxt == True: #merge with next bout
-                new_start = hyp.iloc[pos]['start_time']
-                hyp.at[hyp.index[pos+1], 'start_time'] = new_start
-                hyp.at[hyp.index[pos+1], 'duration'] = hyp.iloc[pos+1]['end_time'] - hyp.iloc[pos+1]['start_time'] #reset duration field
+            if prev == False and nxt == True:  # merge with next bout
+                new_start = hyp.iloc[pos]["start_time"]
+                hyp.at[hyp.index[pos + 1], "start_time"] = new_start
+                hyp.at[hyp.index[pos + 1], "duration"] = (
+                    hyp.iloc[pos + 1]["end_time"] - hyp.iloc[pos + 1]["start_time"]
+                )  # reset duration field
                 hyp.drop(hyp.index[pos], inplace=True)
                 continue
 
     hyp.reset_index(drop=True, inplace=True)
     return hyp
 
+
 def remove_duplicate_bouts(hyp):
     for bout in hyp.itertuples():
-        ix = bout.Index # gets the index label
-        pos = hyp.index.get_loc(ix) # gets the actual position in the dataframe using the label
-        
+        ix = bout.Index  # gets the index label
+        pos = hyp.index.get_loc(
+            ix
+        )  # gets the actual position in the dataframe using the label
+
         if ix == hyp.index.min():
             continue
-        if bout.state == hyp.iloc[pos-1].state:
-            if bout.start_time == hyp.iloc[pos-1].end_time:
-                new_start = hyp.iloc[pos-1]['start_time']
-                hyp.at[hyp.index[pos], 'start_time'] = new_start
-                hyp.at[hyp.index[pos], 'duration'] = hyp.iloc[pos]['end_time'] - hyp.iloc[pos]['start_time'] #reset duration field
-                row = hyp.index[pos-1]
+        if bout.state == hyp.iloc[pos - 1].state:
+            if bout.start_time == hyp.iloc[pos - 1].end_time:
+                new_start = hyp.iloc[pos - 1]["start_time"]
+                hyp.at[hyp.index[pos], "start_time"] = new_start
+                hyp.at[hyp.index[pos], "duration"] = (
+                    hyp.iloc[pos]["end_time"] - hyp.iloc[pos]["start_time"]
+                )  # reset duration field
+                row = hyp.index[pos - 1]
                 hyp.drop(row, inplace=True)
             else:
                 continue
     hyp.reset_index(drop=True, inplace=True)
     return hyp
 
+
 def standard_hypno_corrections(hyp):
     """Applies the standard hypnogram corrections, in order, which is currently:
     1. Remove empty bouts - anything with duration of 0 seconds
     2. Remove unsure bouts - if unsure bout is less than 4 seconds, merge with the previous or next bout
     3. Remove duplicate bouts - if a two bouts are identical and adjacent, merge them into one bout
-    
+
 
     Args:
         hyp (Hypnogram DF): Any hypnogram with either Datetime or float64 timestamps
