@@ -71,6 +71,20 @@ def get_sorting_stim_start(subject, exp):
     return time_to_stim
 
 
+def stim_bookends(subject, exp):
+    """gives the starting and ending datetimes that a stimulation happened for a given experiment.
+    Returns:
+    ---------
+    stim_start, stim_end : pd.Timestamp
+    """
+
+    sub_info = acr.info_pipeline.load_subject_info(subject)
+    stim_store = sub_info["stim-exps"][exp]
+    stim_start = pd.Timestamp(sub_info["stim_info"][exp][stim_store]["onsets"][0])
+    stim_end = pd.Timestamp(sub_info["stim_info"][exp][stim_store]["offsets"][-1])
+    return stim_start, stim_end
+
+
 def get_sorting_time_from_dt(subject, exp, dt, dt_rec):
     sub_info = acr.info_pipeline.load_subject_info(subject)
     dt_rec_start = pd.Timestamp(sub_info["rec_times"][dt_rec]["start"])
