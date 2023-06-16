@@ -11,7 +11,6 @@ root = st.text_input(
 )
 
 
-@st.cache()
 def read_ferrule_data(path):
     """
     Reads the ferrule data from the specified path (single .csv file).
@@ -33,18 +32,17 @@ def read_ferrule_data(path):
     )
 
     # add a column for the ferrule ID
-    ferrule_data["Ferrule"] = path.stem.split("-")[0]
+    # ferrule_data["Ferrule"] = path.stem.split("-")[0]
 
     # add a column for the patch-cord identifier (or fiber split)
-    ferrule_data["Fiber"] = path.stem.split("-")[1]
+    # ferrule_data["Fiber"] = path.stem.split("-")[1]
 
     # add a column for the knob value
-    ferrule_data["Knob"] = path.stem.split("-")[-1]
+    # ferrule_data["Knob"] = path.stem.split("-")[-1]
 
     return ferrule_data
 
 
-@st.cache()
 def get_ferrule_names(root):
     root = Path(root)
     files = [str(p) for p in root.glob("*.csv")]
