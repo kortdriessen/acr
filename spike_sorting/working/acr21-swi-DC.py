@@ -8,22 +8,21 @@ from sort_utils import (
     check_probe_spacing,
 )
 
-subject = "ACR_16"
+subject = "ACR_21"
 experiment = "swi"
-recordings = ["swi-bl", "swi-sd", "swi", "swi-post"]
+recordings = ["swi-bl", "swi", "swi-post", "swi-post2"]
 STORES = ["NNXr", "NNXo"]
 
 NCHANS = 16
 T_START = [0, 0, 0, 0]
 T_END = [0, 0, 0, 0]
 
-
 threshhold_params = [4, 8, 2]
 
 probe_spacing = 50
-analysis_version = "ks2_5_no-drift-correction"
+analysis_version = "ks2_5_nblocks=1_8s-batches"
 out_dir = "ssd-raid0"
-tag = None
+tag = "DC"
 
 CHECK_SPREADSHEET = "ON"
 CHECK_DATA_QUALITY = "ON"

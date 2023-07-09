@@ -9,16 +9,15 @@ from sort_utils import (
 )
 
 subject = "ACR_X"
-experiment = "exp"
-recordings = ["rec1", "rec2"]
+experiment = ""
+recordings = [""]
 STORES = ["NNXr", "NNXo"]
 
 NCHANS = 16
-T_START = [0, 0]
-T_END = [0, 0]
+T_START = [0]
+T_END = [0]
 
-
-threshhold_params = [4, 10, 2]
+threshhold_params = [4, 8, 2]
 
 probe_spacing = 50
 analysis_version = "ks2_5_no-drift-correction"
@@ -104,7 +103,9 @@ for STORE in STORES:
         )
     else:
         raise ValueError(f"out_dir {out_dir} not recognized")
-    ks_output_dir_list.append(output_dir)
+
+    true_output_dir = f"{output_dir}{sorting_analysis_name}"
+    ks_output_dir_list.append(true_output_dir)
     tdt_folder_paths_and_sorting_output_dir_list = [(paths_to_concat, output_dir)]
     for tdt_folder_paths, output_dir in tdt_folder_paths_and_sorting_output_dir_list:
         run_pipeline_tdt(
