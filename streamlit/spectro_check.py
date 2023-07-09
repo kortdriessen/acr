@@ -6,7 +6,7 @@ import kdephys as kde
 import acr
 
 plt.style.use("fast")
-plt.style.use("/home/kdriessen/github_t2/kdephys/kdephys/plot/acr_plots.mplstyle")
+plt.style.use("/home/kdriessen/gh_t2/kdephys/kdephys/plot/acr_plots.mplstyle")
 
 subject = st.sidebar.text_input("Enter Subject", "ACR_")
 recording = st.sidebar.text_input("Enter Recording", "")
