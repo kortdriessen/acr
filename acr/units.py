@@ -11,8 +11,6 @@ import os
 import yaml
 import polars as pl
 
-from on_off_detection import OnOffModel
-import on_off_detection as ood
 from acr.utils import raw_data_root, materials_root, opto_loc_root
 
 
@@ -81,8 +79,20 @@ def generate_info_dataframe(subject, sort_id):
     info_df = load_raw_info_df_util(subject, sort_id)
     qm_path = os.path.join(output_dir, "metrics.csv")
     if os.path.isfile(qm_path):
-        qm_df = pd.read_csv(qm_path)
-        info_df = add_qm_to_info_dataframe(info_df, qm_df)
+        qm_cols = [
+            "firing_rate",
+            "isi_violations_ratio",
+            "isi_violations_rate",
+            "isi_violations_count",
+            "snr",
+        ]
+        if all(qm_col in info_df.columns for qm_col in qm_cols):
+            pass  # we already have the quality metric columns in the info dataframe, trying to merge them will cause an error (not sure how this happens...)
+        else:
+            qm_df = pd.read_csv(
+                qm_path
+            )  # if they are not already there, we add them here.
+            info_df = add_qm_to_info_dataframe(info_df, qm_df)
     info_df_path = os.path.join(output_dir, "info_df.parquet")
     info_df.to_parquet(info_df_path, version="2.6")
     return
@@ -135,7 +145,7 @@ def load_raw_info_df_util(subject, sort_id):
     info_df : pd.DataFrame
         info dataframe
     """
-    probe = sort_id.split("-")[1]
+    probe = sort_id.split("-")[-1]
     assert probe == "NNXr" or probe == "NNXo"
     path = sorting_path(subject, sort_id)
     info_path = os.path.join(path, "cluster_info.tsv")
