@@ -54,8 +54,9 @@ def load_spikes_polars(
             polars_df = polars_df.filter(~pl.col("cluster_id").is_in(units2ex))
         sdfs.append(polars_df)
     spike_df = pl.concat(sdfs)
-    spike_df = spike_df.drop(cols2drop)
-
+    for col in cols2drop:
+        if col in spike_df.columns:
+            spike_df = spike_df.drop(col)
     if info == True:
         idf = load_info_df(subject, sort_id, exclude_bad_units=exclude_bad_units)
         return spike_df, idf
