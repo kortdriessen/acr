@@ -2,11 +2,15 @@ from pipeline_tdt import run_pipeline_tdt
 import os
 import yaml
 import pandas as pd
-from sort_utils import check_sorting_thresholds, check_recs_and_times, check_probe_spacing
+from acr.spike_sorting.to_run.sort_utils import (
+    check_sorting_thresholds,
+    check_recs_and_times,
+    check_probe_spacing,
+)
 
-subject = 'ACR_20'
-experiment = 'swi'
-recordings = ['swi-bl', 'swi']
+subject = "ACR_20"
+experiment = "swi"
+recordings = ["swi-bl", "swi"]
 STORES = ["NNXr", "NNXo"]
 
 NCHANS = 16
@@ -16,41 +20,61 @@ T_START = [8000, 8000]
 threshhold_params = [4, 10, 2]
 
 probe_spacing = 50
-analysis_version = ("ks2_5_no-drift-correction")
+analysis_version = "ks2_5_no-drift-correction"
 
 
-CHECK_SPREADSHEET = 'OFF'
-CHECK_DATA_QUALITY = 'ON'
+CHECK_SPREADSHEET = "OFF"
+CHECK_DATA_QUALITY = "ON"
 # ------------------------------------------------------------------------
-#Run some checks
+# Run some checks
 check_sorting_thresholds(threshhold_params)
 check_probe_spacing(probe_spacing)
-if CHECK_SPREADSHEET == 'ON':
+if CHECK_SPREADSHEET == "ON":
     for store in STORES:
         sort_id = f"{experiment}-{store}"
         times, recs = check_recs_and_times(subject, sort_id)
         if times != T_END:
-            print(f"WARNING: times {times} do not match T_END {T_END}, chanding T_END to {times}")
+            print(
+                f"WARNING: times {times} do not match T_END {T_END}, chanding T_END to {times}"
+            )
             T_END = times
         if recs != recordings:
-            print(f"WARNING: recordings {recs} do not match recordings {recordings}, chanding recordings to {recs}")
+            print(
+                f"WARNING: recordings {recs} do not match recordings {recordings}, chanding recordings to {recs}"
+            )
             recordings = recs
 
-if CHECK_DATA_QUALITY == 'ON':
-    _rc = pd.read_excel("/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/master_rec_quality.xlsx")
+if CHECK_DATA_QUALITY == "ON":
+    _rc = pd.read_excel(
+        "/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/master_rec_quality.xlsx"
+    )
     for rec in recordings:
         for store in STORES:
-            rc = info = _rc.loc[_rc.subject == subject].loc[_rc.recording==rec].loc[_rc.store==store]
-            assert rc.empty == False, f"ERROR: {subject}-{rec}-{store} not found in rec_quality spreadsheet"
-            assert len(rc) == 1, f"ERROR: could not get exactly one row of rec_quality spreadsheet for {subject}-{rec}-{store}"
-            assert rc.duration_match.values[0] == 0, f"ERROR: {subject}-{rec}-{store} duration_match is not zero!"
-            if rc.duplicate_found.values[0] != 'No':
-                assert rc.duplicates_corrected.values[0] == 'yes' or 'Yes', f"ERROR: {subject}-{rec}-{store} has duplicates that are not corrected!"
+            rc = info = (
+                _rc.loc[_rc.subject == subject]
+                .loc[_rc.recording == rec]
+                .loc[_rc.store == store]
+            )
+            assert (
+                rc.empty == False
+            ), f"ERROR: {subject}-{rec}-{store} not found in rec_quality spreadsheet"
+            assert (
+                len(rc) == 1
+            ), f"ERROR: could not get exactly one row of rec_quality spreadsheet for {subject}-{rec}-{store}"
+            assert (
+                rc.duration_match.values[0] == 0
+            ), f"ERROR: {subject}-{rec}-{store} duration_match is not zero!"
+            if rc.duplicate_found.values[0] != "No":
+                assert (
+                    rc.duplicates_corrected.values[0] == "yes" or "Yes"
+                ), f"ERROR: {subject}-{rec}-{store} has duplicates that are not corrected!"
 
 # Main Pipeline
 paths_to_concat = []
 for rec in recordings:
-    paths_to_concat.append(f'/Volumes/neuropixel_archive/Data/acr_archive/{subject}/{subject}-{rec}')
+    paths_to_concat.append(
+        f"/Volumes/neuropixel_archive/Data/acr_archive/{subject}/{subject}-{rec}"
+    )
 
 
 prepro_analysis_name = "prepro_df"
@@ -63,9 +87,11 @@ dry_run = False
 hyp_paths = []
 
 for STORE in STORES:
-    output_dir = f'/ssd-raid0/analysis/acr_sorting/{subject}-{experiment}-{STORE}-tstart-test/'
+    output_dir = (
+        f"/ssd-raid0/analysis/acr_sorting/{subject}-{experiment}-{STORE}-tstart-test/"
+    )
     tdt_folder_paths_and_sorting_output_dir_list = [(paths_to_concat, output_dir)]
-    for (tdt_folder_paths, output_dir) in tdt_folder_paths_and_sorting_output_dir_list:
+    for tdt_folder_paths, output_dir in tdt_folder_paths_and_sorting_output_dir_list:
         run_pipeline_tdt(
             tdt_folder_paths,
             output_dir,
@@ -84,8 +110,10 @@ for STORE in STORES:
             dry_run=dry_run,
         )
     # delete whitened data
-    white_files = [f for f in os.listdir(output_dir) if os.path.isfile(os.path.join(output_dir, f))]
+    white_files = [
+        f for f in os.listdir(output_dir) if os.path.isfile(os.path.join(output_dir, f))
+    ]
     for wf in white_files:
         full_path = os.path.join(output_dir, wf)
-        os.system(f'rm -rf {full_path}')
-    os.system(f'touch {output_dir}success.txt')
+        os.system(f"rm -rf {full_path}")
+    os.system(f"touch {output_dir}success.txt")

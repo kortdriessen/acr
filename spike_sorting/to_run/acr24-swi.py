@@ -8,14 +8,14 @@ from sort_utils import (
     check_probe_spacing,
 )
 
-subject = "ACR_23"
-experiment = "pulse-calibration"
-recordings = ["pulse-calibration"]
-STORES = ["NNXr", "NNXo"]
+subject = "ACR_24"
+experiment = "swi"
+recordings = ["swi-bl", "swi"]
+STORES = ["NNXo"]
 
 NCHANS = 16
-T_START = [0]
-T_END = [0]
+T_START = [0, 0]
+T_END = [0, 0]
 
 threshhold_params = [4, 8, 2]
 

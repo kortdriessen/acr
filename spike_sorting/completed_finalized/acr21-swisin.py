@@ -2,7 +2,7 @@ from pipeline_tdt import run_pipeline_tdt
 import os
 import yaml
 import pandas as pd
-from sort_utils import (
+from acr.spike_sorting.to_run.sort_utils import (
     check_sorting_thresholds,
     check_recs_and_times,
     check_probe_spacing,

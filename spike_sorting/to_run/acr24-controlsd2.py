@@ -2,21 +2,20 @@ from pipeline_tdt import run_pipeline_tdt
 import os
 import yaml
 import pandas as pd
-from acr.spike_sorting.to_run.sort_utils import (
+from sort_utils import (
     check_sorting_thresholds,
     check_recs_and_times,
     check_probe_spacing,
 )
 
-subject = "ACR_14"
-experiment = "swi"
-recordings = ["swi-bl", "swi-sd", "swi"]
-STORES = ["NNXr", "NNXo"]
+subject = "ACR_24"
+experiment = "controlsd2"
+recordings = ["controlsd2-bl", "controlsd2"]
+STORES = ["NNXo"]
 
 NCHANS = 16
-T_START = [0, 0, 0]
-T_END = [0, 0, 0]
-
+T_START = [0, 0]
+T_END = [0, 0]
 
 threshhold_params = [4, 8, 2]
 
@@ -104,7 +103,9 @@ for STORE in STORES:
         )
     else:
         raise ValueError(f"out_dir {out_dir} not recognized")
-    ks_output_dir_list.append(output_dir)
+
+    true_output_dir = f"{output_dir}{sorting_analysis_name}"
+    ks_output_dir_list.append(true_output_dir)
     tdt_folder_paths_and_sorting_output_dir_list = [(paths_to_concat, output_dir)]
     for tdt_folder_paths, output_dir in tdt_folder_paths_and_sorting_output_dir_list:
         run_pipeline_tdt(
