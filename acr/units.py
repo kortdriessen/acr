@@ -17,10 +17,8 @@ from acr.utils import raw_data_root, materials_root, opto_loc_root
 def get_units_to_exclude(subject, sort_id):
     unit_exclusion = yaml.safe_load(open(f"{materials_root}unit_exclusion.yaml", "r"))
     if subject not in unit_exclusion.keys():
-        print(f"No units to exclude for {subject}")
         return []
     if sort_id not in unit_exclusion[subject].keys():
-        print(f"No units to exclude for this sort_id: {sort_id}")
         return []
     return unit_exclusion[subject][sort_id]
 

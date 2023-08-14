@@ -264,10 +264,9 @@ def update_subject_info(subject, impt_only=True):
     new_recs = []
     for rec in recordings:
         if rec not in data["recordings"]:
-            if impt_only == True:
-                if rec in impt_recs:
-                    print(f"adding important rec: {rec}")
-                    new_recs.append(rec)
+            if impt_only == True and rec in impt_recs:
+                print(f"adding important rec: {rec}")
+                new_recs.append(rec)
             if impt_only == False:
                 print(f"adding NON-important rec {rec}")
                 new_recs.append(rec)
@@ -424,7 +423,7 @@ def prepro_lite(subject, rec, fs_target=100, t1=0, t2=0):
             )
     # Decimate the data
     dec_data = {}
-    for key in raw_data.keys():
+    for key in raw_data:
         print("decimating: " + key)
         dec_q = int(raw_data[key].fs / fs_target)
         if dec_q > 1:
@@ -433,8 +432,8 @@ def prepro_lite(subject, rec, fs_target=100, t1=0, t2=0):
             print(
                 "fs_target is higher than original fs, skipping decimation for " + key
             )
-            print("fs_target: " + str(fs_target))
-            print("original fs: " + str(raw_data[key].fs))
+            print(f"fs_target: {str(fs_target)}")
+            print(f"original fs: {str(raw_data[key].fs)}")
             dec_data[key] = raw_data[key]
 
     # Save decimated data
@@ -551,9 +550,7 @@ def get_wav2_up_data(subject, exp, t1=0, t2=0, store="Wav2", thresh=1.1e6):
     """returns the times where Wav2 store is greater than 1.5, which should equal the laser on times"""
     info = load_subject_info(subject)
     w = kx.io.get_data(info["paths"][exp], store, t1=t1, t2=t2)
-    w_on = w.where(w > thresh, drop=True)
-
-    return w_on
+    return w.where(w > thresh, drop=True)
 
 
 def get_wav2_on_and_off(wav2_up):
@@ -651,7 +648,7 @@ def stim_info_to_yaml(subject, exps):
     return
 
 
-def get_wavt_up_data(subject, exp, t1=0, t2=0, store="Wavt", thresh=1e6):
+def get_wavt_up_data(subject, exp, t1=0, t2=0, store="Wavt", thresh=1.1e6):
     """returns the times where Wavt store is greater than 1.5, which should equal the laser on times"""
     info = load_subject_info(subject)
     w = kx.io.get_data(info["paths"][exp], store, t1=t1, t2=t2)
@@ -731,7 +728,4 @@ def get_exp_recs(subject, exp):
     """returns a list of all recordings (under a single experiment) from the important_recs.yaml file"""
     important_recs = yaml.safe_load(open(f"{materials_root}important_recs.yaml", "r"))
     impt_recs = important_recs[subject]
-    recs = []
-    for rec in impt_recs[exp]:
-        recs.append(rec)
-    return recs
+    return list(impt_recs[exp])

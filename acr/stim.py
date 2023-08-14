@@ -144,3 +144,120 @@ def get_total_spike_rate(df, pons, poffs):
     )
 
     return on_spike_rate, off_spike_rate
+
+
+def add_zero_count(df1):
+    assert len(df1) == 1
+    probe = "NNXo" if df1["probe"][0] == "NNXr" else "NNXr"
+    dur = df1["duration"][0]
+    train_num = df1["train_number"][0]
+    new_df = pl.DataFrame(
+        {"probe": probe, "count": 0, "duration": dur, "train_number": train_num}
+    )
+    new_df = new_df.with_columns(pl.col("count").cast(pl.UInt32))
+    new_df = new_df.with_columns(pl.col("train_number").cast(pl.Int32))
+    return pl.concat([df1, new_df])
+
+
+def pulse_cal_calculation(df, pons, poffs, interval=12):
+    """get the total spike counts during pulse-ON, and during pulse-OFF, for each probe
+
+    Parameters
+    ----------
+    df : polars dataframe
+        spike dataframe
+    pons : np.array
+        pulse onsets
+    poffs : np.array
+        pulse offsets
+    interval : int, optional
+        number of pulses in each pulse train, by default 12
+
+    Returns
+    -------
+    on_spike_rate, off_spike_rate : polars dataframe
+        spike rates for each cluster in each probe during pulse-ON and pulse-OFF
+    """
+
+    # iterate through each pulse train, calculate the spike rate during pulse-ON and pulse-OFF, and express it as a ratio of the baseline spike rate
+    trn_number = 0
+    trains = np.arange(0, len(pons), 12)
+    on_spike_counts = pl.DataFrame()
+    off_spike_counts = pl.DataFrame()
+
+    for i in trains:
+        pulse_ons = pons[i : i + 12]
+        pulse_offs = poffs[i : i + 12]
+
+        off_interval = pulse_ons[1] - pulse_offs[0]
+        off_duration = off_interval / np.timedelta64(1, "s")
+
+        for onset, offset in zip(pulse_ons, pulse_offs):
+            on_spike_count = df.ts(onset, offset).groupby(["probe"]).agg(pl.count())
+            on_duration = (offset - onset) / np.timedelta64(1, "s")
+            on_spike_count = on_spike_count.with_columns(duration=pl.lit(on_duration))
+            on_spike_count = on_spike_count.with_columns(
+                train_number=pl.lit(trn_number)
+            )
+            if len(on_spike_count) < 2:
+                on_spike_count = add_zero_count(on_spike_count)
+            on_spike_counts = pl.concat([on_spike_counts, on_spike_count])
+
+            off_spike_count = (
+                df.ts(offset, offset + off_interval).groupby(["probe"]).count()
+            )
+            off_spike_count = off_spike_count.with_columns(
+                duration=pl.lit(off_duration)
+            )
+            off_spike_count = off_spike_count.with_columns(
+                train_number=pl.lit(trn_number)
+            )
+            if len(off_spike_count) < 2:
+                off_spike_count = add_zero_count(off_spike_count)
+            off_spike_counts = pl.concat([off_spike_counts, off_spike_count])
+        trn_number += 1
+
+    return on_spike_counts.to_pandas(), off_spike_counts.to_pandas()
+
+
+def sincal_calculation(df, pons, poffs):
+    """get the total spike counts during pulse-ON, and during pulse-OFF, for each probe
+
+    Parameters
+    ----------
+    df : polars dataframe
+        spike dataframe
+    pons : np.array
+        pulse onsets
+    poffs : np.array
+        pulse offsets
+
+    Returns
+    -------
+    on_spike_rate, off_spike_rate : polars dataframe
+        spike rates for each cluster in each probe during pulse-ON and pulse-OFF
+    """
+    # iterate through each pulse train, calculate the spike rate during pulse-ON and pulse-OFF, and express it as a ratio of the baseline spike rate
+    trn_number = 0
+
+    on_spike_counts = pl.DataFrame()
+    off_spike_counts = pl.DataFrame()
+
+    for onset, offset in zip(pons, poffs):
+        on_spike_count = df.ts(onset, offset).groupby(["probe"]).agg(pl.count())
+        on_duration = (offset - onset) / np.timedelta64(1, "s")
+        on_spike_count = on_spike_count.with_columns(duration=pl.lit(on_duration))
+        on_spike_count = on_spike_count.with_columns(train_number=pl.lit(trn_number))
+        if len(on_spike_count) < 2:
+            on_spike_count = add_zero_count(on_spike_count)
+        on_spike_counts = pl.concat([on_spike_counts, on_spike_count])
+        trn_number += 1
+
+    return on_spike_counts.to_pandas()
+
+
+def clus_check(subject, exp, probe, clus):
+    sid = f"{exp}-{probe}"
+    ex = acr.pl_units.get_units_to_exclude(subject, sid)
+    if clus in ex:
+        return False

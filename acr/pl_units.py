@@ -1,5 +1,6 @@
 import polars as pl
 import pandas as pd
+import numpy as np
 import acr
 from acr.units import *
 import seaborn as sns
@@ -35,7 +36,6 @@ def load_spikes_polars(
         cols2drop = [
             "group",
             "note",
-            "channel",
             "exp",
             "recording",
             "state",
@@ -229,6 +229,7 @@ def get_rel_fr_df(
     t2=None,
     over_bouts=False,
     return_early=False,
+    arb=False,
 ):
     """gets the firing rate (either by probe or cluster) relative to the baseline firing rate in a specified state
 
@@ -251,7 +252,10 @@ def get_rel_fr_df(
     if t1 == None and t2 == None:
         t1 = bl_start
         t2 = bl_start + pd.Timedelta("12h")
-    bl_frs = get_state_fr(df, hyp, t1=t1, t2=t2, state=rel_state)
+    if arb == True:
+        bl_frs = fr_arbitrary_bout(df, t1, t2, by="cluster_id")
+    else:
+        bl_frs = get_state_fr(df, hyp, t1=t1, t2=t2, state=rel_state)
     window_time = int(window.strip("s"))
     if by == "probe":
         if over_bouts == True:
@@ -334,7 +338,10 @@ def fr_arbitrary_bout(df, t1, t2, by="cluster_id"):
     fr_bout : pl.Dataframe
         dataframe with firing rate for each cluster or probe over the specified time period
     """
-    bout_duration = (t2 - t1).total_seconds()
+    if type(t1) == pd.Timestamp:
+        bout_duration = (t2 - t1).total_seconds()
+    elif type(t1) == np.datetime64:
+        bout_duration = (t2 - t1) / np.timedelta64(1, "s")
 
     if by == "cluster_id":
         spikes = df.ts(t1, t2).groupby(["probe", "cluster_id"]).count()
