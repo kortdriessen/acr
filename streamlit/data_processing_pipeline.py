@@ -352,13 +352,19 @@ if st.button("Update master_rec_quality.xlsx"):
 
     # this updates the duration_match column for all important recs for each subject
     for sub in important_recs.keys():
+        if sub == "ACR_24":
+            continue
         si = acr.info_pipeline.load_subject_info(sub)
         for exp in important_recs[sub]:
             if exp == "stores":
                 continue
             for rec in important_recs[sub][exp]:
                 for store in important_recs[sub]["stores"]:
-                    if "NNXr" and "NNXo" in important_recs[sub]["stores"]:
+                    if np.logical_and(
+                        "NNXr" in important_recs[sub]["stores"],
+                        "NNXo" in important_recs[sub]["stores"],
+                    ):
+                        # print(sub, exp, rec, store)
                         other = "NNXo" if store == "NNXr" else "NNXr"
                         diff = (
                             si["rec_times"][rec][f"{store}-duration"]
@@ -367,6 +373,7 @@ if st.button("Update master_rec_quality.xlsx"):
                     else:
                         diff = 0
                     # st.write(f'{sub} {rec} {store} duration match = {diff} samples')
+                    print(sub, rec, store, diff)
                     ix = (
                         new_rec_quality.loc[new_rec_quality.subject == sub]
                         .loc[new_rec_quality.recording == rec]
@@ -391,6 +398,10 @@ if st.button("Process LFPs (downsample and save raw data)"):
     # First process the LFP data
     st.write("Processing LFPs")
     acr.info_pipeline.preprocess_and_save_all_recordings(subject, fs_target=400)
+    st.write("Processing Bandpower Data")
+    acr.io.calc_and_save_bandpower_sets(
+        subject, stores=stores, window_length=4, overlap=2
+    )
 
 if st.button("Calculate and Save Bandpower Sets"):
     # Then process the bandpower data
