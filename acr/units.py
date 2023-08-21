@@ -395,6 +395,8 @@ def single_probe_spike_df(
     spike_df = assign_recordings_to_spike_df(spike_df, recordings, durations)
     print("assigning datetimes")
     spike_df = assign_datetimes_to_spike_df(spike_df, recordings, start_times)
+    if "swi-N" in sort_id:
+        stim = False
     if stim:
         print("adding stim info")
         spike_df = add_stim_info(spike_df, subject)
