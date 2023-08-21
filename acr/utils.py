@@ -8,6 +8,39 @@ raw_data_root = "/Volumes/neuropixel_archive/Data/acr_archive/"
 materials_root = "/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/"
 opto_loc_root = "/Volumes/opto_loc/Data/"
 
+swi_subs_exps = {
+    "ACR_14": ["swi"],
+    "ACR_16": ["swi", "swi2"],
+    "ACR_17": ["swi"],
+    "ACR_18": ["swi", "swisin"],
+    "ACR_19": ["swi", "swi2", "swisin"],
+    "ACR_20": ["swi", "swisin"],
+    "ACR_21": ["swi", "swi2", "swisin"],
+    "ACR_23": ["swi", "swi2", "swisin"],
+}
+sub_probe_locations = {
+    "ACR_14": "frontal",
+    "ACR_16": "frontal",
+    "ACR_17": "parietal",
+    "ACR_18": "frontal",
+    "ACR_19": "frontal",
+    "ACR_20": "frontal",
+    "ACR_21": "frontal",
+    "ACR_23": "parietal",
+}
+
+sub_exp_types = {
+    "ACR_14": "exp",
+    "ACR_16": "exp",
+    "ACR_17": "exp",
+    "ACR_18": "exp",
+    "ACR_19": "exp",
+    "ACR_20": "exp",
+    "ACR_21": "control",
+    "ACR_23": "exp",
+}
+
+
 def add_time_class(df, times):
     if "control1" in df.condition[0]:
         stim_on = times["control1"]["stim_on_dt"]
