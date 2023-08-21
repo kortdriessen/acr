@@ -414,4 +414,4 @@ st.markdown("# Process Unit Dataframes")
 if st.button("Process Unit Dataframes"):
     # THen process the unit dataframes
     st.write("Processing Unit Dataframes")
-    acr.units.save_all_spike_dfs(subject, drop_noise=True, stim=True)
+    acr.units.save_all_spike_dfs(subject, drop_noise=True, stim=False)
