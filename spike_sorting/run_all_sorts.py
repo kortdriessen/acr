@@ -13,7 +13,7 @@ def run_script(script):
 # Define the main function
 def main():
     # Set the directory where your scripts are located
-    script_dir = "/home/kdriessen/gh_t2/acr/spike_sorting/to_run"
+    script_dir = "/home/kdriessen/gh_master/acr/spike_sorting/to_run"
 
     # Get a list of all the Python scripts in the directory
     scripts = [

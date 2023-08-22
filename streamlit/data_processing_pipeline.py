@@ -10,7 +10,7 @@ import tdt
 import streamlit as st
 
 plt.style.use("fast")
-plt.style.use("/home/kdriessen/gh_t2/kdephys/kdephys/plot/acr_plots.mplstyle")
+plt.style.use("/home/kdriessen/gh_master/kdephys/kdephys/plot/acr_plots.mplstyle")
 import ast
 import acr.duplication_functions as dpf
 

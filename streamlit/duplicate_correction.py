@@ -8,7 +8,7 @@ import acr
 import tdt
 
 plt.style.use("fast")
-plt.style.use("/home/kdriessen/gh_t2/kdephys/kdephys/plot/acr_plots.mplstyle")
+plt.style.use("/home/kdriessen/gh_master/kdephys/kdephys/plot/acr_plots.mplstyle")
 import shutil
 import acr.duplication_functions as dpf
 import yaml

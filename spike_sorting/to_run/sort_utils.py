@@ -4,7 +4,7 @@ import numpy as np
 
 
 def check_sorting_thresholds(threshes):
-    params_path = "/home/kdriessen/gh_t2/pipeline_tdt/pipeline_tdt/params/params.yaml"
+    params_path = "/home/kdriessen/gh_master/pipeline_tdt/pipeline_tdt/params/params.yaml"
     with open(params_path, "r") as fp:
         params = list(yaml.safe_load_all(fp))
     proj_thresh = params[1]["analysis_params"]["ks2_5_base"]["projection_threshold"]
@@ -49,7 +49,7 @@ def check_recs_and_times(subject, sort_id):
 
 
 def check_probe_spacing(spacing):
-    params_path = "/home/kdriessen/gh_t2/pipeline_tdt/pipeline_tdt/params/params.yaml"
+    params_path = "/home/kdriessen/gh_master/pipeline_tdt/pipeline_tdt/params/params.yaml"
     with open(params_path, "r") as fp:
         params = list(yaml.safe_load_all(fp))
     probe_spacing = params[0]["analysis_params"]["probe_spacing"]
