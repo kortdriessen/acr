@@ -18,6 +18,7 @@ swi_subs_exps = {
     "ACR_21": ["swi", "swi2", "swisin"],
     "ACR_23": ["swi", "swi2", "swisin"],
 }
+
 sub_probe_locations = {
     "ACR_14": "frontal",
     "ACR_16": "frontal",
@@ -87,3 +88,30 @@ def get_rec_times(si):
         d = (end - start) / np.timedelta64(1, "s")
         times[exp] = (start, end, d)
     return times
+
+def elimate_bad_channels(subject, exp, stores=['NNXo', 'NNXr'], fp=True, bp=True, unit_df=True):
+    """
+
+    Parameters
+    ----------
+    subject : _type_
+        _description_
+    exp : _type_
+        _description_
+    stores : list, optional
+        _description_, by default ['NNXo', 'NNXr']
+    fp : bool, optional
+        _description_, by default True
+    bp : bool, optional
+        _description_, by default True
+    unit_df : bool, optional
+        _description_, by default True
+    """
+    path = '/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/channel_exclusion.yaml'
+    params = acr.info_pipeline.subject_params(subject)
+    all_chans = params['channels'][stores[0]]
+    with open(path, 'r') as f:
+        channel_exclusion = yaml.safe_load(f)
+    chans_to_exclude = channel_exclusion[subject][exp]
+    chans_to_keep = [chan for chan in all_chans if chan not in chans_to_exclude]
+    recordings = acr.info_pipeline.get_exp_recs(subject, exp)

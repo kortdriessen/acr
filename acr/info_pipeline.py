@@ -96,14 +96,14 @@ def no_end_check(block):
         return math.isnan(block.info.stop_date)
 
 
-def get_rec_times(sub, exps, time_stores=["NNXo", "NNXr"], backup_store=["EMGr"]):
+def get_rec_times(sub, exps, time_stores=["NNXo", "NNXr"], backup_store=["EMGr"], force_end_check=True):
     """Gets durations, starts, and ends of recording times for set of experiments.
 
     Args:
         sub (str) : subject name
         exps (list): experiment names
         time_stores (list, optional): stores to use to calculate start and end times. Defaults to ['NNXo', 'NNXr'].
-
+        force_end_check: forces you to get the correct end time if you know that time_sanity_check will fail.
     Returns:
         times: dictionary, keys are experiment names,
     """
@@ -116,8 +116,8 @@ def get_rec_times(sub, exps, time_stores=["NNXo", "NNXr"], backup_store=["EMGr"]
         i = d.info
         start = np.datetime64(i.start_date)
 
-        if no_end_check(d):
-            block_duration = get_duration_from_store(p, "NNXr")
+        if (no_end_check(d) or force_end_check):
+            block_duration = get_duration_from_store(p, time_stores[0])
             end = start + pd.Timedelta(block_duration, "s")
             end = np.datetime64(end)
         elif no_end_check(d) == False:
@@ -128,6 +128,7 @@ def get_rec_times(sub, exps, time_stores=["NNXo", "NNXr"], backup_store=["EMGr"]
 
         if not time_sanity_check(end):
             times[exp] = get_time_full_load(p, backup_store[0])
+            print(f'time sanity check failed for {exp}, using {backup_store[0]} to get end time')
             continue
 
         times[exp] = {}
@@ -286,7 +287,7 @@ def update_subject_info(subject, impt_only=True):
     data["lite_stores"] = params["lite_stores"]
     data["subject"] = subject
     data["channels"] = params["channels"]
-    data["recordings"] = recordings
+    data["recordings"] = impt_recs if impt_only else recordings
     data["stim-exps"] = params["stim-exps"]
 
     with open(path, "w") as f:
@@ -729,3 +730,20 @@ def get_exp_recs(subject, exp):
     important_recs = yaml.safe_load(open(f"{materials_root}important_recs.yaml", "r"))
     impt_recs = important_recs[subject]
     return list(impt_recs[exp])
+
+def check_for_bad_channels(subject, exp):
+    ex_path = f'{materials_root}channel_exclusion.yaml'
+    with open(ex_path, 'r') as f:
+        ex = yaml.safe_load(f)
+    if subject in ex.keys():
+        if exp in ex[subject].keys():
+            channels_to_exclude = ex[subject][exp]
+            return channels_to_exclude
+    return []
+
+def get_exp_from_rec(subject, rec):
+    important_recs = yaml.safe_load(open(f"{materials_root}important_recs.yaml", "r"))
+    for exp in important_recs[subject]:
+        if rec in important_recs[subject][exp]:
+            return exp
+    return None

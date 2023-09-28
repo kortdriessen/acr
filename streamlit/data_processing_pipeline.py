@@ -352,6 +352,7 @@ if st.button("Update master_rec_quality.xlsx"):
 
     # this updates the duration_match column for all important recs for each subject
     for sub in important_recs.keys():
+        print(sub)
         if sub == "ACR_24":
             continue
         si = acr.info_pipeline.load_subject_info(sub)

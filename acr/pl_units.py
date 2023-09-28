@@ -7,10 +7,19 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import kdephys.plot.main as kp
 
+def col_check(df_list):
+    if len(df_list) <= 1:
+        return True
+    columns_set = set(df_list[0].columns)
+    for df in df_list[1:]:
+        if set(df.columns) != columns_set:
+            print('Multiple dataframes exist in list to be concatenated, but do not have identical columns')
+            print(f'Columns of first dataframe in set: {columns_set}')
+            print(f'Columns in offending dataframe: {df.columns}')
+            return False
+    return True
 
-def load_spikes_polars(
-    subject, sort_id, cols2drop=None, info=True, exclude_bad_units=True
-):
+def load_spikes_polars(subject, sort_id, cols2drop=None, info=True, exclude_bad_units=True, exclude_bad_channels=True):
     """load polars spike dataframe from parquet files, eager mode
 
     Parameters
@@ -41,6 +50,7 @@ def load_spikes_polars(
             "state",
             "amp",
             "Amplitude",
+            "stim",
         ]
     if cols2drop == 0:
         cols2drop = []
@@ -49,14 +59,33 @@ def load_spikes_polars(
     for sid in sort_id:
         key = sid + ".parquet"
         polars_df = pl.read_parquet(path + key)
+        
+        for col in cols2drop:
+            if col in polars_df.columns:
+                polars_df = polars_df.drop(col)
+                
         if exclude_bad_units == True:
             units2ex = get_units_to_exclude(subject, sid)
-            polars_df = polars_df.filter(~pl.col("cluster_id").is_in(units2ex))
+            if units2ex == None:
+                pass
+            else:
+                polars_df = polars_df.filter(~pl.col("cluster_id").is_in(units2ex))
+        
         sdfs.append(polars_df)
+    
+    cols_match = col_check(sdfs)
+    if cols_match == False:
+        print('Column Mismatch - see output and adjust cols2drop parameter of this function')
+        return False
+    
     spike_df = pl.concat(sdfs)
-    for col in cols2drop:
-        if col in spike_df.columns:
-            spike_df = spike_df.drop(col)
+
+    if exclude_bad_channels == True:
+        exp = sort_id[0].split("-")[0]
+        bad_chans = acr.info_pipeline.check_for_bad_channels(subject, exp)
+        if bad_chans != []:
+            spike_df = spike_df.filter(~pl.col("channel").is_in(bad_chans))
+    
     if info == True:
         idf = load_info_df(subject, sort_id, exclude_bad_units=exclude_bad_units)
         return spike_df, idf
@@ -140,7 +169,7 @@ def bout_duration_similarity_check(df, col="bout_duration"):
         return df
 
 
-def get_state_fr(df, hyp, t1=None, t2=None, state="NREM", min_duration=30):
+def get_state_fr(df, hyp, t1=None, t2=None, state="NREM", min_duration=30, prb=False):
     """gets the firing rate for each cluster during a specified state.
 
     Args:
@@ -170,7 +199,10 @@ def get_state_fr(df, hyp, t1=None, t2=None, state="NREM", min_duration=30):
         bout_duration = (end - start).total_seconds()
         if bout_duration < min_duration:
             continue
-        spikes = df.ts(start, end).groupby(["probe", "cluster_id"]).count()
+        if prb == True:
+            spikes = df.ts(start, end).groupby(["probe"]).count()
+        else:
+            spikes = df.ts(start, end).groupby(["probe", "cluster_id"]).count()
         fr_bout = spikes.with_columns(pl.lit(bout_duration).alias("bout_duration"))
         fr_master = pl.concat([fr_master, fr_bout])
 

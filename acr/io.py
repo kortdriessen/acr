@@ -165,7 +165,7 @@ def load_hypno_full_exp(subject, exp, corrections=True, float=False):
 
 # ---------------------------------------------------- Data + Spectral io --------------------------------------
 
-def calc_and_save_bandpower_sets(subject, stores=['NNXo', 'NNXr'], recordings=None, window_length=4, overlap=2):
+def calc_and_save_bandpower_sets(subject, stores=['NNXo', 'NNXr'], recordings=None, window_length=4, overlap=2, redo=False):
     """
     NOTE: ONLY USE THIS IF BANDPOWER SETS NOT ALREADY CALCULATED
     NOTE: MUST HAVE DATA STORED IN SUBJECT FOLDER AS NETCDF FILE
@@ -197,8 +197,9 @@ def calc_and_save_bandpower_sets(subject, stores=['NNXo', 'NNXr'], recordings=No
     for store in stores:
         for recording in recordings:
             if f'{recording}-{store}.nc' in bp_recs:
-                print(f'{recording}-{store} already calculated')
-                continue
+                if redo == False:
+                    print(f'{recording}-{store} already calculated')
+                    continue
             data_root = f"{opto_loc_root}{subject}"
             bp_root = f'{data_root}/bandpower_data/'
             data = load_raw_data(subject, recording, store)
@@ -208,7 +209,7 @@ def calc_and_save_bandpower_sets(subject, stores=['NNXo', 'NNXr'], recordings=No
             bp.to_netcdf(f'{bp_root}{recording}-{store}.nc')
     return None
 
-def load_raw_data(subject, recording, store, select=None, hypno=None):
+def load_raw_data(subject, recording, store, select=None, hypno=None, exclude_bad_channels=True):
     """loads the xr.dataarray of raw data for a single recording-store combination.
 
     Args:
@@ -236,11 +237,25 @@ def load_raw_data(subject, recording, store, select=None, hypno=None):
             states = kh.no_states_array(data.datetime.values)
             data = data.assign_coords(state=("datetime", states))
             print(f'{recording} has no hypnogram, added no_states array dataset')
+    if exclude_bad_channels:
+        exp = aip.get_exp_from_rec(subject, recording)
+        if 'NNX' in store:
+            bad_chans = aip.check_for_bad_channels(subject, exp)
+            # a check in case the data has already been saved with bad channels excluded
+            to_remove = []
+            for ch in bad_chans:
+                if (ch in data.channel.values) == False:
+                    to_remove.append(ch)
+            for ch in to_remove:
+                bad_chans.remove(ch) 
+            if bad_chans != []:
+                data = data.drop_sel({'channel': bad_chans})
+                
     return data
 
 
 
-def load_bandpower_file(subject, recording, store, hypno=True, select=None):
+def load_bandpower_file(subject, recording, store, hypno=True, select=None, exclude_bad_channels=True):
     """loads the xr.dataset of bandpower data for a single recording-store combination.
 
     Args:
@@ -261,7 +276,6 @@ def load_bandpower_file(subject, recording, store, hypno=True, select=None):
     
     if np.logical_and(recording not in list(data.coords.keys()), store not in list(data.coords.keys())):
         data = data.assign_coords({'recording': recording, 'store': store})
-        print(f'{recording} was missing recording and store coordinates, added them')
     if hypno:
         h = load_hypno(subject, recording)
         if h is not None:
@@ -269,7 +283,20 @@ def load_bandpower_file(subject, recording, store, hypno=True, select=None):
         elif h is None:
             states = kh.no_states_array(data.datetime.values)
             data = data.assign_coords(state=("datetime", states))
-            print(f'{recording} has no hypnogram, added no_states array dataset')
+    if exclude_bad_channels:
+        exp = aip.get_exp_from_rec(subject, recording)
+        if 'NNX' in store:
+            bad_chans = aip.check_for_bad_channels(subject, exp)
+            # a check in case the data has already been saved with bad channels excluded
+            to_remove = []
+            for ch in bad_chans:
+                if (ch in data.channel.values) == False:
+                    print(f'{recording} has no channel {ch}')
+                    to_remove.append(ch)
+            for ch in to_remove:
+                bad_chans.remove(ch)
+            if bad_chans != []:
+                data = data.drop_sel({'channel': bad_chans})
     return data
 
 def load_concat_bandpower(subject, recordings, stores, hypno=True, select=None):
@@ -319,5 +346,4 @@ def load_concat_raw_data(subject, recordings, stores, hypno=True, select=None):
         data_stores.append(data_cx_store)
     
     data = xr.concat(data_stores, dim='store')
-    # occasionally because of mismatching total lengths between recordings, the time dimens
     return data

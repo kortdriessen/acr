@@ -259,5 +259,8 @@ def sincal_calculation(df, pons, poffs):
 def clus_check(subject, exp, probe, clus):
     sid = f"{exp}-{probe}"
     ex = acr.pl_units.get_units_to_exclude(subject, sid)
-    if clus in ex:
-        return False
+    if ex == None:
+        return True
+    else:
+        if clus in ex:
+            return False
