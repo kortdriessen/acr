@@ -39,3 +39,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.pyc
+
+# all csv files
+*.csv
