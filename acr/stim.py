@@ -80,6 +80,8 @@ def stim_bookends(subject, exp):
 
     sub_info = acr.info_pipeline.load_subject_info(subject)
     stim_store = sub_info["stim-exps"][exp]
+    if type(stim_store) == list: #this should be the Pu1_ store in the few cases where there are multiple stim stores
+        stim_store = stim_store[0]
     stim_start = pd.Timestamp(sub_info["stim_info"][exp][stim_store]["onsets"][0])
     stim_end = pd.Timestamp(sub_info["stim_info"][exp][stim_store]["offsets"][-1])
     return stim_start, stim_end

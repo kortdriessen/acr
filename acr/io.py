@@ -64,7 +64,6 @@ def check_for_hypnos(subject, recording):
     else:
         return False
 
-
 def update_hypno_yaml(subject):
     hypno_root = f"{materials_root}{subject}/hypnograms/"
     info = aip.load_subject_info(subject)
@@ -96,8 +95,9 @@ def update_hypno_yaml(subject):
     return
 
 
-def load_hypno(subject, recording, corrections=False):
-    update_hypno_yaml(subject)
+def load_hypno(subject, recording, corrections=False, update=True):
+    if update == True:
+        update_hypno_yaml(subject)
     hypno_file = f"{materials_root}acr-hypno-paths.yaml"
     hypno_root = f"{materials_root}{subject}/hypnograms/"
     hypno_info = yaml.load(open(hypno_file, "r"), Loader=yaml.FullLoader)
@@ -133,7 +133,7 @@ def load_hypno(subject, recording, corrections=False):
     else:
         return hypno
 
-def load_hypno_full_exp(subject, exp, corrections=True, float=False):
+def load_hypno_full_exp(subject, exp, corrections=True, float=False, update=True):
     """loads every hypnogram across all recordings of an experiment, and concatenates them
 
     Args:
@@ -142,14 +142,15 @@ def load_hypno_full_exp(subject, exp, corrections=True, float=False):
         float (bool, optional): if True, each recording's hypnogram is FIRST converted to float BEFORE concatenating, so each individual hypnogram will start at zero. Defaults to False.
     """
     h = {}
-    update_hypno_yaml(subject)
+    if update == True:
+        update_hypno_yaml(subject)
     hypno_file = f"{materials_root}acr-hypno-paths.yaml"
     hypno_info = yaml.load(open(hypno_file, "r"), Loader=yaml.FullLoader)
     recs = [x for x in list(hypno_info[subject].keys()) if exp in x]
     recs = acr.info_pipeline.get_exp_recs(subject, exp)
     for rec in recs:
         if rec in list(hypno_info[subject].keys()):
-            h[rec] = load_hypno(subject, rec)
+            h[rec] = load_hypno(subject, rec, update=update)
     if float: 
         for rec in h.keys():
             h[rec] = h[rec].as_float()
@@ -209,7 +210,7 @@ def calc_and_save_bandpower_sets(subject, stores=['NNXo', 'NNXr'], recordings=No
             bp.to_netcdf(f'{bp_root}{recording}-{store}.nc')
     return None
 
-def load_raw_data(subject, recording, store, select=None, hypno=None, exclude_bad_channels=True):
+def load_raw_data(subject, recording, store, select=None, hypno=None, exclude_bad_channels=True, update_hypno=True):
     """loads the xr.dataarray of raw data for a single recording-store combination.
 
     Args:
@@ -230,7 +231,7 @@ def load_raw_data(subject, recording, store, select=None, hypno=None, exclude_ba
         data = data.assign_coords({'recording': recording, 'store': store})
     
     if hypno:
-        h = load_hypno(subject, recording)
+        h = load_hypno(subject, recording, update=update_hypno)
         if h is not None:
             data = kh.add_states(data, h)
         elif h is None:
@@ -255,7 +256,7 @@ def load_raw_data(subject, recording, store, select=None, hypno=None, exclude_ba
 
 
 
-def load_bandpower_file(subject, recording, store, hypno=True, select=None, exclude_bad_channels=True):
+def load_bandpower_file(subject, recording, store, hypno=True, update_hyp=True, select=None, exclude_bad_channels=True):
     """loads the xr.dataset of bandpower data for a single recording-store combination.
 
     Args:
@@ -277,7 +278,7 @@ def load_bandpower_file(subject, recording, store, hypno=True, select=None, excl
     if np.logical_and(recording not in list(data.coords.keys()), store not in list(data.coords.keys())):
         data = data.assign_coords({'recording': recording, 'store': store})
     if hypno:
-        h = load_hypno(subject, recording)
+        h = load_hypno(subject, recording, update=update_hyp)
         if h is not None:
             data = kh.add_states(data, h)
         elif h is None:
@@ -299,7 +300,7 @@ def load_bandpower_file(subject, recording, store, hypno=True, select=None, excl
                 data = data.drop_sel({'channel': bad_chans})
     return data
 
-def load_concat_bandpower(subject, recordings, stores, hypno=True, select=None):
+def load_concat_bandpower(subject, recordings, stores, hypno=True, update_hyp=True, select=None):
     """loads and concatenates bandpower data for a list of recordings and stores
 
     Args:
@@ -316,14 +317,14 @@ def load_concat_bandpower(subject, recordings, stores, hypno=True, select=None):
     for store in stores:
         bp_recs = []
         for recording in recordings:
-            bp = load_bandpower_file(subject, recording, store, hypno=hypno)
+            bp = load_bandpower_file(subject, recording, store, hypno=hypno, update_hyp=update_hyp)
             bp_recs.append(bp)
         bp_cx_store = xr.concat(bp_recs, dim='datetime')
         bp_stores.append(bp_cx_store)
     bp = xr.concat(bp_stores, dim='store')
     return bp.sel(select)
 
-def load_concat_raw_data(subject, recordings, stores, hypno=True, select=None):
+def load_concat_raw_data(subject, recordings, stores, select=None):
     """loads and concatenates raw data for a list of recordings and stores
 
     Args:

@@ -1,3 +1,6 @@
+import acr
+import pandas as pd
+
 #---------------- Adjust Parameters Here -----------------# 
 subject = "ACR_#"
 exp = 'EXP'
@@ -9,6 +12,8 @@ rel_state='NREM'
 # ----------------------------------------- subject_info + Hypno -----------------------------------------
 h = acr.io.load_hypno_full_exp(subject, exp)
 si = acr.info_pipeline.load_subject_info(subject)
+params = acr.info_pipeline.subject_params(subject)
+stores = params['time_stores']
 sort_ids = [f'{exp}-{store}' for store in stores]
 recordings = acr.info_pipeline.get_exp_recs(subject, exp)
 #---------------------------------------------------------------------------------------------------------
