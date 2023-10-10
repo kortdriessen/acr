@@ -161,7 +161,7 @@ def add_zero_count(df1):
     return pl.concat([df1, new_df])
 
 
-def pulse_cal_calculation(df, pons, poffs, interval=12):
+def pulse_cal_calcs(df, pons, poffs, trn_starts, trn_ends):
     """get the total spike counts during pulse-ON, and during pulse-OFF, for each probe
 
     Parameters
@@ -172,24 +172,25 @@ def pulse_cal_calculation(df, pons, poffs, interval=12):
         pulse onsets
     poffs : np.array
         pulse offsets
-    interval : int, optional
-        number of pulses in each pulse train, by default 12
+    trn_starts : np.array
+        pulse train onsets
+    trn_ends : np.array
+        pulse train offsets
 
     Returns
     -------
     on_spike_rate, off_spike_rate : polars dataframe
-        spike rates for each cluster in each probe during pulse-ON and pulse-OFF
+        spike rates for each each probe during pulse-ON and pulse-OFF
     """
 
     # iterate through each pulse train, calculate the spike rate during pulse-ON and pulse-OFF, and express it as a ratio of the baseline spike rate
     trn_number = 0
-    trains = np.arange(0, len(pons), 12)
     on_spike_counts = pl.DataFrame()
     off_spike_counts = pl.DataFrame()
 
-    for i in trains:
-        pulse_ons = pons[i : i + 12]
-        pulse_offs = poffs[i : i + 12]
+    for trn_start, trn_end in zip(trn_starts, trn_ends):
+        pulse_ons = pons[trn_start:trn_end+1]
+        pulse_offs = poffs[trn_start:trn_end+1]
 
         off_interval = pulse_ons[1] - pulse_offs[0]
         off_duration = off_interval / np.timedelta64(1, "s")
@@ -219,7 +220,16 @@ def pulse_cal_calculation(df, pons, poffs, interval=12):
             off_spike_counts = pl.concat([off_spike_counts, off_spike_count])
         trn_number += 1
 
-    return on_spike_counts.to_pandas(), off_spike_counts.to_pandas()
+    on_spike_counts = on_spike_counts.to_pandas()
+    off_spike_counts = off_spike_counts.to_pandas()
+    
+    on_spike_counts = on_spike_counts.groupby(["probe", "train_number"]).sum().reset_index()
+    off_spike_counts = off_spike_counts.groupby(["probe", "train_number"]).sum().reset_index()
+    
+    on_spike_counts['fr'] = on_spike_counts['count'] / on_spike_counts['duration']
+    off_spike_counts['fr'] = off_spike_counts['count'] / off_spike_counts['duration']
+    
+    return on_spike_counts, off_spike_counts
 
 
 def sincal_calculation(df, pons, poffs):

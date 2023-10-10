@@ -330,3 +330,63 @@ def ss_times(sub, exp, print_=False):
         print("FILE #2"), print(start2), print(end2)
     print("Done loading times")
     return times
+
+def pulse_cal_calculation(df, pons, poffs, interval=12):
+    """get the total spike counts during pulse-ON, and during pulse-OFF, for each probe
+
+    Parameters
+    ----------
+    df : polars dataframe
+        spike dataframe
+    pons : np.array
+        pulse onsets
+    poffs : np.array
+        pulse offsets
+    interval : int, optional
+        number of pulses in each pulse train, by default 12
+
+    Returns
+    -------
+    on_spike_rate, off_spike_rate : polars dataframe
+        spike rates for each cluster in each probe during pulse-ON and pulse-OFF
+    """
+
+    # iterate through each pulse train, calculate the spike rate during pulse-ON and pulse-OFF, and express it as a ratio of the baseline spike rate
+    trn_number = 0
+    trains = np.arange(0, len(pons), 12)
+    on_spike_counts = pl.DataFrame()
+    off_spike_counts = pl.DataFrame()
+
+    for i in trains:
+        pulse_ons = pons[i : i + 12]
+        pulse_offs = poffs[i : i + 12]
+
+        off_interval = pulse_ons[1] - pulse_offs[0]
+        off_duration = off_interval / np.timedelta64(1, "s")
+
+        for onset, offset in zip(pulse_ons, pulse_offs):
+            on_spike_count = df.ts(onset, offset).groupby(["probe"]).agg(pl.count())
+            on_duration = (offset - onset) / np.timedelta64(1, "s")
+            on_spike_count = on_spike_count.with_columns(duration=pl.lit(on_duration))
+            on_spike_count = on_spike_count.with_columns(
+                train_number=pl.lit(trn_number)
+            )
+            if len(on_spike_count) < 2:
+                on_spike_count = add_zero_count(on_spike_count)
+            on_spike_counts = pl.concat([on_spike_counts, on_spike_count])
+
+            off_spike_count = (
+                df.ts(offset, offset + off_interval).groupby(["probe"]).count()
+            )
+            off_spike_count = off_spike_count.with_columns(
+                duration=pl.lit(off_duration)
+            )
+            off_spike_count = off_spike_count.with_columns(
+                train_number=pl.lit(trn_number)
+            )
+            if len(off_spike_count) < 2:
+                off_spike_count = add_zero_count(off_spike_count)
+            off_spike_counts = pl.concat([off_spike_counts, off_spike_count])
+        trn_number += 1
+
+    return on_spike_counts.to_pandas(), off_spike_counts.to_pandas()
