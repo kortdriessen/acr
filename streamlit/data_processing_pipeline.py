@@ -320,6 +320,7 @@ if st.button("Update master_rec_quality.xlsx"):
             if exp == "stores":
                 continue
             for rec in important_recs[sub][exp]:
+                print('CHECKING', sub, rec)
                 for store in stores:
                     # check if info already in rec_quality sheet
                     if check_rec_quality_sheet(sub, rec, store):
@@ -352,7 +353,6 @@ if st.button("Update master_rec_quality.xlsx"):
 
     # this updates the duration_match column for all important recs for each subject
     for sub in important_recs.keys():
-        print(sub)
         if sub == "ACR_24":
             continue
         si = acr.info_pipeline.load_subject_info(sub)
@@ -361,6 +361,8 @@ if st.button("Update master_rec_quality.xlsx"):
                 continue
             for rec in important_recs[sub][exp]:
                 for store in important_recs[sub]["stores"]:
+                    if check_rec_quality_sheet(sub, rec, store) == False: #if the rec-store combo is not even in the rec quality sheet yet, skip the duration match check
+                        continue
                     if np.logical_and(
                         "NNXr" in important_recs[sub]["stores"],
                         "NNXo" in important_recs[sub]["stores"],

@@ -13,6 +13,7 @@ import math
 from importlib.machinery import SourceFileLoader
 from benedict import benedict
 import datetime
+import pickle
 from acr.utils import raw_data_root, materials_root, opto_loc_root
 
 
@@ -35,6 +36,9 @@ def load_subject_info(subject):
         data = yaml.safe_load(f)
     return benedict(data)
 
+def get_subject_list():
+    important_recs = yaml.safe_load(open(f"{materials_root}important_recs.yaml", "r"))
+    return list(important_recs.keys())
 
 def load_dup_info(subject, rec, store):
     path = f"{materials_root}duplication_info.yaml"
@@ -321,13 +325,16 @@ def redo_subject_info(subject, recs=[]):
     for rec in recs:
         assert rec in si["recordings"], f"{rec} not in {subject} recordings!"
         # first remove each rec from the 'recordings' list:
-        si["recordings"].remove(rec)
+        if rec in si["recordings"]:
+            si["recordings"].remove(rec)
 
         # then remove each rec from the 'rec_times' dict:
-        si["rec_times"].pop(rec)
+        if rec in si["rec_times"].keys():
+            si["rec_times"].pop(rec)
 
         # and from the 'paths' dict for completeness:
-        si["paths"].pop(rec)
+        if rec in si["paths"].keys():
+            si["paths"].pop(rec)
 
         # Then remove each rec from 'stim_info' and 'stim_exps', if it exists:
         if rec in si["stim_info"].keys():
@@ -534,14 +541,14 @@ def epoc_extractor(subject, recording, epoc_store, t1=0, t2=0):
     onsets = rec_start + (onsets * 1e9).astype("timedelta64[ns]")
     offsets = rec_start + (offsets * 1e9).astype("timedelta64[ns]")
     # plot the onsets and offsets:
-    dt_range = pd.DatetimeIndex([rec_start, rec_end])
-    f, ax = plt.subplots(figsize=(20, 5))
-    ax.plot(dt_range, [0, 0], "k")
-    for on, off in zip(onsets, offsets):
-        ax.axvline(on, color="green")
-        ax.axvline(off, color="red")
-        ax.axvspan(on, off, color="blue", alpha=0.2)
-    ax.set_xlim(onsets[0] - pd.Timedelta(1, "s"), offsets[-1] + pd.Timedelta(1, "s"))
+    #dt_range = pd.DatetimeIndex([rec_start, rec_end])
+    #f, ax = plt.subplots(figsize=(20, 5))
+    #ax.plot(dt_range, [0, 0], "k")
+    #for on, off in zip(onsets, offsets):
+        #ax.axvline(on, color="green")
+        #ax.axvline(off, color="red")
+        #ax.axvspan(on, off, color="blue", alpha=0.2)
+    #ax.set_xlim(onsets[0] - pd.Timedelta(1, "s"), offsets[-1] + pd.Timedelta(1, "s"))
 
     # return the onsets and offsets
     return onsets, offsets
@@ -747,3 +754,52 @@ def get_exp_from_rec(subject, rec):
         if rec in important_recs[subject][exp]:
             return exp
     return None
+
+def get_channel_map(subject):
+    si = acr.info_pipeline.load_subject_info(subject)
+    if 'NNXr' in si['raw_stores'] and 'NNXo' in si['raw_stores']:
+        stores = ['NNXr', 'NNXo']
+    elif 'NNXr' in si['raw_stores']:
+        stores = ['NNXr']
+    elif 'NNXo' in si['raw_stores']:
+        stores = ['NNXo']
+    else:
+        raise Exception('No raw stores found')
+    channel_map = {}
+    for store in stores:
+        histo_path = f'{materials_root}{subject}/histology/herbs/{store}.pkl'
+        if not os.path.exists(histo_path):
+            return channel_map
+        probe = pickle.load(open(histo_path, 'rb'))
+        channel_codes = probe['data']['sites_label']
+        channel_codes = list(channel_codes[0])
+        channel_codes.reverse()
+        region_names = probe['data']['label_name']
+        region_names.remove(' ') if ' ' in region_names else region_names
+        region_codes = probe['data']['region_label']
+        region_codes.remove(0) if 0 in region_codes else region_codes
+        layers = []
+        regions = []
+        for rn in region_names:
+            regions.append(rn.split(' layer ')[0])
+            layers.append(rn.split(' layer ')[1])
+        code_map = {}
+        for i, code in enumerate(region_codes):
+            code_map[str(code)] = {}
+            code_map[str(code)]['region'] = regions[i]
+            code_map[str(code)]['layer'] = layers[i]
+        channel_map[store] = {}
+        for i, code in enumerate(channel_codes):
+            chan = i+1
+            channel_map[store][str(chan)] = code_map[str(code)]
+    return channel_map
+
+def add_channel_map_to_subject_info(subject):
+    path = f"{materials_root}{subject}/subject_info.yml"
+    with open(path) as f:
+        si = yaml.load(f, Loader=yaml.FullLoader)
+    if 'channel_map' in si:
+        return si
+    si['channel_map'] = get_channel_map(subject) 
+    acr.info_pipeline.save_subject_info(subject, si)
+    return si

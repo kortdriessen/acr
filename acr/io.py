@@ -95,7 +95,7 @@ def update_hypno_yaml(subject):
     return
 
 
-def load_hypno(subject, recording, corrections=False, update=True):
+def load_hypno(subject, recording, corrections=False, update=True, float=False):
     if update == True:
         update_hypno_yaml(subject)
     hypno_file = f"{materials_root}acr-hypno-paths.yaml"
@@ -126,8 +126,12 @@ def load_hypno(subject, recording, corrections=False, update=True):
             all_hypnos.append(h)
             end = h.end_time.max()
     hypno = pd.concat(all_hypnos)
+    
     hypno = hypno.reset_index(drop=True)
     hypno = DatetimeHypnogram(hypno)
+    if float:
+        hypno = hypno.as_float()
+    
     if corrections:
         return hu.standard_hypno_corrections(hypno)
     else:

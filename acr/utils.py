@@ -18,6 +18,7 @@ swi_subs_exps = {
     "ACR_21": ["swi", "swi2", "swisin"],
     "ACR_23": ["swi", "swi2", "swisin"],
     "ACR_25": ["swi", "swisin"],
+    "ACR_26": ["swi"],
 }
 
 sub_probe_locations = {
@@ -30,6 +31,7 @@ sub_probe_locations = {
     "ACR_21": "frontal",
     "ACR_23": "parietal",
     "ACR_25": "frontal",
+    "ACR_26": "parietal",
 }
 
 sub_exp_types = {
@@ -41,7 +43,8 @@ sub_exp_types = {
     "ACR_20": "acr",
     "ACR_21": "control",
     "ACR_23": "acr",
-    "ACR_25": "som"
+    "ACR_25": "som",
+    "ACR_26": "som",
 }
 
 

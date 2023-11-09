@@ -122,6 +122,7 @@ def get_stim_df(subject, exp, reprocess_existing=False, save=True):
         if reprocess_existing:
             stim_df = stim_df.loc[(stim_df.subject!=subject)|(stim_df.exp!=exp)]
         else:
+            print(f'Already added {subject} | {exp}')
             return
     
     # load some basic information, and the hypnogram
@@ -174,3 +175,35 @@ def get_stim_df(subject, exp, reprocess_existing=False, save=True):
     if save:
         stim_df.to_csv(f'{data_path_root}/stim_df.csv') 
     return
+
+def add_layer_info_to_df(df, subject):
+    if 'layer' not in df.columns:
+        df['layer'] = 0
+    si = acr.info_pipeline.load_subject_info(subject)
+
+    if 'channel_map' not in si.keys():
+        print(f'No channel map for {subject}')
+        return df
+    chan_map = si['channel_map']
+    if len(chan_map) == 0:
+        print(f'No channel map for {subject}')
+        return df
+    
+    #check if layer information has already been added:
+    stores = df.sbj(subject)['store'].unique()
+    chans = df.sbj(subject).prb(stores[0])['channel'].unique()
+    test_chan1 = chans[0]
+    test_chan2 = chans[-1]
+    layer1 = chan_map[stores[0]][str(test_chan1)]['layer']
+    layer2 = chan_map[stores[0]][str(test_chan2)]['layer']
+    
+    if (df.sbj(subject).prb(stores[0]).ch(test_chan1)['layer'].values[0] == layer1) & (df.sbj(subject).prb(stores[0]).ch(test_chan2)['layer'].values[0] == layer2):
+        print(f'Layer information already added for {subject}')
+        return df
+
+    #add layer information:
+    for store in stores:
+        for chan in df.sbj(subject).prb(store)['channel'].unique():
+            layer = chan_map[store][str(chan)]['layer']
+            df.loc[(df.subject==subject) & (df.prb(store)['channel']==chan), 'layer'] = layer
+    return df
