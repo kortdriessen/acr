@@ -19,10 +19,10 @@ import acr.info_pipeline as aip
 
 
 def get_hypno_times(subject):
-    info = aip.load_subject_info(subject)
+    recs = aip.subject_info_section(subject, "recordings")
     root = Path(f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/hypnograms/")
     hyp_info = {}
-    for rec in info["recordings"]:
+    for rec in recs:
         name_root = f"hypno_{rec}_chunk"
         hyp_info[rec] = {}
         hyp_info[rec]["starts"] = []
@@ -59,11 +59,12 @@ def get_hypno_times(subject):
 
 def hypno_coverage(subject):
     hypno_times = get_hypno_times(subject)
-    info = aip.load_subject_info(subject)
+    rec_times = aip.subject_info_section(subject, "rec_times")
     for rec in hypno_times.keys():
         h = acr.io.load_hypno(subject, rec)
-        rec_start = np.datetime64(info["rec_times"][rec]["start"])
-        rec_end = np.datetime64(info["rec_times"][rec]["end"])
+        print(rec, len(h))
+        rec_start = np.datetime64(rec_times[rec]["start"])
+        rec_end = np.datetime64(rec_times[rec]["end"])
         hypno_start = hypno_times[rec]["starts"][0]
         hypno_start_td = pd.to_timedelta(hypno_start, unit="s")
         hypno_start_dt = rec_start + hypno_start_td
@@ -81,10 +82,10 @@ def hypno_coverage(subject):
 
 
 def get_config_info(subject):
-    info = aip.load_subject_info(subject)
+    recs = aip.subject_info_section(subject, "recordings")
     root = Path(f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/{subject}/config-files/")
     cfg_info = {}
-    for rec in info["recordings"]:
+    for rec in recs:
         name_root = f"{subject}_sleepscore-config_{rec}-chunk"
         cfg_info[rec] = {}
         cfg_info[rec]["starts"] = []
@@ -232,11 +233,10 @@ if "Check Available Config Files" in to_do:
     st.markdown(f"## Available Config Files for {subject}")
     config_visualizer(subject)
 
-
 if "Generate Config Files" in to_do:
     st.markdown(f"## Generate a Config File for {subject}")
     subject = subject
-    si = acr.info_pipeline.load_subject_info(subject)
+    rec_times = acr.info_pipeline.subject_info_section(subject, "rec_times")
     
     chunks = st.number_input("How many chunks?", min_value=1, max_value=100, value=2)
     chunk_length = st.number_input(
@@ -245,32 +245,57 @@ if "Generate Config Files" in to_do:
     start_at = st.number_input("Start at chunk #:", min_value=1, max_value=None, value=1)
     recording = st.text_input("Enter a recording", value="")
     _channels = [
-        "EMGr-1",
-        "EEG_-1",
-        "EEG_-2",
-        "LFP_-2",
-        "LFP_-6",
-        "LFP_-10",
-        "LFP_-14",
-        "LFPo-2",
-        "LFPo-6",
-        "LFPo-10",
-        "LFPo-14",
-    ]
+                'EMGr-1',
+                'EEG_-1',
+                'EEG_-2',
+                'NNXr-1',
+                'NNXr-2',
+                'NNXr-3',
+                'NNXr-4',
+                'NNXr-5',
+                'NNXr-6',
+                'NNXr-7',
+                'NNXr-8',
+                'NNXr-9',
+                'NNXr-10',
+                'NNXr-11',
+                'NNXr-12',
+                'NNXr-13',
+                'NNXr-14',
+                'NNXr-15',
+                'NNXr-16',
+                'NNXo-1',
+                'NNXo-2',
+                'NNXo-3',
+                'NNXo-4',
+                'NNXo-5',
+                'NNXo-6',
+                'NNXo-7',
+                'NNXo-8',
+                'NNXo-9',
+                'NNXo-10',
+                'NNXo-11',
+                'NNXo-12',
+                'NNXo-13',
+                'NNXo-14',
+                'NNXo-15',
+                'NNXo-16'
+                ]
     channels = st.multiselect(
         "Choose channels",
         _channels,
-        default=["EMGr-1", "EEG_-1", "EEG_-2", "LFP_-2", "LFP_-10"],
+        default=["EMGr-1", "NNXr-3", "NNXr-6", "NNXr-9", "NNXr-12", "NNXr-15", "NNXo-3", "NNXo-6", "NNXo-9", "NNXo-12", "NNXo-15"],
     )
-    if recording not in list(si["rec_times"].keys()):
+    if recording not in list(rec_times.keys()):
+        st.write(f"{rec_times.keys()}")
         st.warning(f"{recording} is not in subject_info.yaml file for {subject}! This is Kort's fault!!")
         st.write('To solve the above issue, acr.info_pipeline.update_subject_info() will be run to fix the issue. If this does not work, please yell at Kort.')
         st.write('Updating subject_info.yaml file...')
-        acr.info_pipeline.update_subject_info(subject)
+        #acr.info_pipeline.update_subject_info(subject)
         st.write('subject_info.yaml successfully updated, please rerun dashboard')
-        st.stop()
+        #st.stop()
 
-    duration = int(si['rec_times'][recording]['duration'])
+    duration = int(rec_times[recording]['duration'])
     st.write(f"Recording duration: {duration}s")
     st.write(f"Number of chunks given duration and chunk length: {(duration/chunk_length)}")
     single_config_vis(subject, recording)

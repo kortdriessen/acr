@@ -40,6 +40,51 @@ def get_subject_list():
     important_recs = yaml.safe_load(open(f"{materials_root}important_recs.yaml", "r"))
     return list(important_recs.keys())
 
+def get_sub_info_list(file_path, section):
+    with open(file_path, 'r') as file:
+        capture = False
+        section_data = ""
+
+        for line in file:
+            if line.strip() == f"{section}:":  # Start capturing when section is found
+                capture = True
+                section_data += line
+                continue
+            if capture:
+                # Capture lines that start with a dash and a space, indicating list items
+                if line.startswith('- '):
+                    section_data += line
+                else:
+                    break  # Stop capturing when list items end
+
+        data = yaml.safe_load(section_data)
+        return data[section]
+
+def subject_info_section(subject, section):
+    file_path = f"{materials_root}{subject}/subject_info.yml"
+    
+    if section in ['recordings', 'raw_stores', 'lite_stores']:
+        return get_sub_info_list(file_path, section)
+    
+    
+    with open(file_path, 'r') as file:
+        capture = False
+        section_data = ""
+
+        for line in file:
+            if line.strip() == f"{section}:":  # Start capturing when section is found
+                capture = True
+                section_data += line
+                continue
+            if capture:
+                if line.startswith(' ') or line.startswith('\t'):  # Section content is indented
+                    section_data += line
+                else:
+                    break  # Stop capturing when indentation ends
+
+        data = yaml.safe_load(section_data)
+        return data[section]
+
 def load_dup_info(subject, rec, store):
     path = f"{materials_root}duplication_info.yaml"
     dup_info = yaml.safe_load(open(path, "r"))

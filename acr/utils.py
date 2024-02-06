@@ -19,6 +19,8 @@ swi_subs_exps = {
     "ACR_23": ["swi", "swi2", "swisin"],
     "ACR_25": ["swi", "swisin"],
     "ACR_26": ["swi"],
+    "ACR_27": ["swi"],
+    "ACR_28": ["swi"],
 }
 
 sub_probe_locations = {
@@ -32,6 +34,8 @@ sub_probe_locations = {
     "ACR_23": "parietal",
     "ACR_25": "frontal",
     "ACR_26": "parietal",
+    "ACR_27": "parietal",
+    "ACR_28": "parietal",
 }
 
 sub_exp_types = {
@@ -45,6 +49,8 @@ sub_exp_types = {
     "ACR_23": "acr",
     "ACR_25": "som",
     "ACR_26": "som",
+    "ACR_27": "control",
+    "ACR_28": "som",
 }
 
 
@@ -81,6 +87,15 @@ def tdt_to_dt(info, data, time_key, slc=True):
     else:
         return (dt_start, dt_end)
 
+def dt_to_tdt(subject, rec, dt):
+    """converts datetime to tdt time for a given recording"""
+
+    rec_times = acr.info_pipeline.subject_info_section(subject, 'rec_times')
+    rec_start = pd.Timestamp(rec_times[rec]['start'])
+    if type(dt) == str:
+        dt = pd.Timestamp(dt)
+    return (dt - rec_start).total_seconds()
+    
 
 def get_rec_times(si):
     sub = si["subject"]

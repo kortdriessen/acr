@@ -66,8 +66,7 @@ def check_for_hypnos(subject, recording):
 
 def update_hypno_yaml(subject):
     hypno_root = f"{materials_root}{subject}/hypnograms/"
-    info = aip.load_subject_info(subject)
-    recs = info["recordings"]
+    recs = aip.subject_info_section(subject, 'recordings')
     hypno_file = f"{materials_root}acr-hypno-paths.yaml"
     with open(hypno_file, "r") as f:
         hypno_info = yaml.load(f, Loader=yaml.FullLoader)
@@ -107,8 +106,8 @@ def load_hypno(subject, recording, corrections=False, update=True, float=False):
     hypno_paths = hypno_info[subject][recording]
     
     hypno_paths = [f"{hypno_root}{hp}" for hp in hypno_paths]
-    sub_info = aip.load_subject_info(subject)
-    rec_start = np.datetime64(sub_info["rec_times"][recording]["start"])
+    rec_times = aip.subject_info_section(subject, "rec_times")
+    rec_start = np.datetime64(rec_times[recording]["start"])
 
     all_hypnos = []
     for hp in hypno_paths:
@@ -304,7 +303,7 @@ def load_bandpower_file(subject, recording, store, hypno=True, update_hyp=True, 
                 data = data.drop_sel({'channel': bad_chans})
     return data
 
-def load_concat_bandpower(subject, recordings, stores, hypno=True, update_hyp=True, select=None):
+def load_concat_bandpower(subject, recordings, stores, hypno=True, update_hyp=True, select=None, exclude_bad_channels=True):
     """loads and concatenates bandpower data for a list of recordings and stores
 
     Args:
@@ -321,7 +320,7 @@ def load_concat_bandpower(subject, recordings, stores, hypno=True, update_hyp=Tr
     for store in stores:
         bp_recs = []
         for recording in recordings:
-            bp = load_bandpower_file(subject, recording, store, hypno=hypno, update_hyp=update_hyp)
+            bp = load_bandpower_file(subject, recording, store, hypno=hypno, update_hyp=update_hyp, exclude_bad_channels=exclude_bad_channels)
             bp_recs.append(bp)
         bp_cx_store = xr.concat(bp_recs, dim='datetime')
         bp_stores.append(bp_cx_store)

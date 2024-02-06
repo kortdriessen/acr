@@ -20,6 +20,7 @@ def gen_config(
     start_from=1,
     exp="",
     chans=["EMGr-1", "EEG_-1", "EEG_-2", "LFP_-2", "LFP_-6", "LFP_-10", "LFP_-14"],
+    downsample=400.0,
 ):
     """Generates config files for sleep scoring, saves them in config-files directory of subject's materials folder.
 
@@ -58,6 +59,8 @@ def gen_config(
         data["datasets"][0]["binPath"] = data_path
         # Set the channels
         data["datasets"][0]["chanList"] = chans
+        #set the downsample rate
+        data['downSample'] = downsample
         # Set the times
         tend = ((rel_num + 1) * chunk_length) + start_time
         data["tStart"] = tend - chunk_length
