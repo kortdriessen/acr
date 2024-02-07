@@ -10,17 +10,17 @@ opto_loc_root = "/Volumes/opto_loc/Data/"
 
 swi_subs_exps = {
     "ACR_14": ["swi"],
-    "ACR_16": ["swi", "swi2"],
+    "ACR_16": ["swi2"],
     "ACR_17": ["swi"],
     "ACR_18": ["swi", "swisin"],
-    "ACR_19": ["swi", "swi2", "swisin"],
+    "ACR_19": ["swi2", "swisin"],
     "ACR_20": ["swi", "swisin"],
-    "ACR_21": ["swi", "swi2", "swisin"],
-    "ACR_23": ["swi", "swi2", "swisin"],
+    "ACR_21": ["swi2", "swisin"],
+    "ACR_23": ["swi2", "swisin"],
     "ACR_25": ["swi", "swisin"],
-    "ACR_26": ["swi"],
+    "ACR_26": ["swi", "swisin2"],
     "ACR_27": ["swi"],
-    "ACR_28": ["swi"],
+    "ACR_28": ["swi", "swisin"],
 }
 
 sub_probe_locations = {

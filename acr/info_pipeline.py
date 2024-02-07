@@ -83,6 +83,8 @@ def subject_info_section(subject, section):
                     break  # Stop capturing when indentation ends
 
         data = yaml.safe_load(section_data)
+        if type(data) == type(None):
+            return None
         return data[section]
 
 def load_dup_info(subject, rec, store):

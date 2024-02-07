@@ -50,8 +50,8 @@ def get_rebound_df(subject, exp, reprocess_existing=False, save=True):
             return
     
     # load some basic information, and the hypnogram
-    h = acr.io.load_hypno_full_exp(subject, exp, update=False)
-    si = acr.info_pipeline.load_subject_info(subject)
+    h = acr.io.load_hypno_full_exp(subject, exp, update=True)
+    rec_times = acr.info_pipeline.subject_info_section(subject, 'rec_times')
     params = acr.info_pipeline.subject_params(subject)
     stores = params['time_stores']
     sort_ids = [f'{exp}-{store}' for store in stores]
@@ -69,18 +69,18 @@ def get_rebound_df(subject, exp, reprocess_existing=False, save=True):
 
     assert reb_start >= stim_end, 'Rebound start time is before stim end time'
 
-    bl_start_actual = si["rec_times"][f'{exp}-bl']["start"]
+    bl_start_actual = rec_times[f'{exp}-bl']["start"]
     bl_day = bl_start_actual.split("T")[0]
     bl_start = pd.Timestamp(bl_day + "T09:00:00")
 
-    if f'{exp}-sd' in si['rec_times'].keys():
+    if f'{exp}-sd' in rec_times.keys():
         sd_rec = f'{exp}-sd'
-        sd_end = pd.Timestamp(si['rec_times'][sd_rec]['end'])
+        sd_end = pd.Timestamp(rec_times[sd_rec]['end'])
     else:
         sd_rec = exp
         sd_end = stim_start
-    sd_start_actual = pd.Timestamp(si['rec_times'][sd_rec]['start'])
-    sd_day = si['rec_times'][sd_rec]['start'].split("T")[0]
+    sd_start_actual = pd.Timestamp(rec_times[sd_rec]['start'])
+    sd_day = rec_times[sd_rec]['start'].split("T")[0]
     sd_start = pd.Timestamp(sd_day + "T09:00:00")
     
     # Load the BANDPOWER DATA
@@ -126,8 +126,8 @@ def get_stim_df(subject, exp, reprocess_existing=False, save=True):
             return
     
     # load some basic information, and the hypnogram
-    h = acr.io.load_hypno_full_exp(subject, exp, update=False)
-    si = acr.info_pipeline.load_subject_info(subject)
+    h = acr.io.load_hypno_full_exp(subject, exp, update=True)
+    rec_times = acr.info_pipeline.subject_info_section(subject, 'rec_times')
     params = acr.info_pipeline.subject_params(subject)
     stores = params['time_stores']
     sort_ids = [f'{exp}-{store}' for store in stores]
@@ -145,18 +145,18 @@ def get_stim_df(subject, exp, reprocess_existing=False, save=True):
 
     assert reb_start >= stim_end, 'Rebound start time is before stim end time'
 
-    bl_start_actual = si["rec_times"][f'{exp}-bl']["start"]
+    bl_start_actual = rec_times[f'{exp}-bl']["start"]
     bl_day = bl_start_actual.split("T")[0]
     bl_start = pd.Timestamp(bl_day + "T09:00:00")
 
-    if f'{exp}-sd' in si['rec_times'].keys():
+    if f'{exp}-sd' in rec_times.keys():
         sd_rec = f'{exp}-sd'
-        sd_end = pd.Timestamp(si['rec_times'][sd_rec]['end'])
+        sd_end = pd.Timestamp(rec_times[sd_rec]['end'])
     else:
         sd_rec = exp
         sd_end = stim_start
-    sd_start_actual = pd.Timestamp(si['rec_times'][sd_rec]['start'])
-    sd_day = si['rec_times'][sd_rec]['start'].split("T")[0]
+    sd_start_actual = pd.Timestamp(rec_times[sd_rec]['start'])
+    sd_day = rec_times[sd_rec]['start'].split("T")[0]
     sd_start = pd.Timestamp(sd_day + "T09:00:00")
     
     # Load the BANDPOWER DATA
@@ -179,12 +179,10 @@ def get_stim_df(subject, exp, reprocess_existing=False, save=True):
 def add_layer_info_to_df(df, subject):
     if 'layer' not in df.columns:
         df['layer'] = 0
-    si = acr.info_pipeline.load_subject_info(subject)
-
-    if 'channel_map' not in si.keys():
+    chan_map = acr.info_pipeline.subject_info_section(subject, 'channel_map')
+    if chan_map == None:
         print(f'No channel map for {subject}')
         return df
-    chan_map = si['channel_map']
     if len(chan_map) == 0:
         print(f'No channel map for {subject}')
         return df
@@ -197,7 +195,7 @@ def add_layer_info_to_df(df, subject):
     layer1 = chan_map[stores[0]][str(test_chan1)]['layer']
     layer2 = chan_map[stores[0]][str(test_chan2)]['layer']
     
-    if (df.sbj(subject).prb(stores[0]).ch(test_chan1)['layer'].values[0] == layer1) & (df.sbj(subject).prb(stores[0]).ch(test_chan2)['layer'].values[0] == layer2):
+    if (df.sbj(subject).prb(stores[0]).chnl(test_chan1)['layer'].values[0] == layer1) & (df.sbj(subject).prb(stores[0]).chnl(test_chan2)['layer'].values[0] == layer2):
         print(f'Layer information already added for {subject}')
         return df
 
