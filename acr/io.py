@@ -335,7 +335,6 @@ def load_concat_raw_data(subject, recordings, stores, select=None):
         recordings (list): recordings
         stores (list): data stores to use
         select(dict): dictionary to pass to .sel() method of concatenated xr.dataset, keys are dimentions, values are values to select
-        hypno (bool, optional): passed to load_bandpower_file, if True adds a state coordinate to the bandpower data
     Returns:
         concatenated xr.dataset of bandpower data for all recording-store combinations
     """
