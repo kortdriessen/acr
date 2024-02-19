@@ -355,6 +355,8 @@ if st.button("Update master_rec_quality.xlsx"):
     for sub in important_recs.keys():
         if sub == "ACR_24":
             continue
+        if sub != subject:
+            continue
         si = acr.info_pipeline.load_subject_info(sub)
         for exp in important_recs[sub]:
             if exp == "stores":

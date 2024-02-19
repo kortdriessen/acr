@@ -246,8 +246,8 @@ if "Generate Config Files" in to_do:
     recording = st.text_input("Enter a recording", value="")
     _channels = [
                 'EMGr-1',
-                'EEG_-1',
-                'EEG_-2',
+                'EEGr-1',
+                'EEGr-2',
                 'NNXr-1',
                 'NNXr-2',
                 'NNXr-3',
@@ -284,7 +284,7 @@ if "Generate Config Files" in to_do:
     channels = st.multiselect(
         "Choose channels",
         _channels,
-        default=["EMGr-1", "NNXr-3", "NNXr-6", "NNXr-9", "NNXr-12", "NNXr-15", "NNXo-3", "NNXo-6", "NNXo-9", "NNXo-12", "NNXo-15"],
+        default=["EMGr-1", "EEGr-1", "EEGr-2", "NNXr-2", "NNXr-6", "NNXr-9", "NNXr-12", "NNXr-15", "NNXo-2", "NNXo-6", "NNXo-9", "NNXo-12", "NNXo-15"],
     )
     if recording not in list(rec_times.keys()):
         st.write(f"{rec_times.keys()}")
