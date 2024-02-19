@@ -8,21 +8,21 @@ from sort_utils import (
     check_probe_spacing,
 )
 
-subject = "ACR_26"
-experiment = "swisin2"
-recordings = ["swisin2-bl", "swisin2", "swisin2-post"]
-STORES = ["NNXr", "NNXo"]
+subject = "ACR_25"
+experiment = "swi"
+recordings = ["swi"]
+STORES = ["NNXo"]
 
 NCHANS = 16
-T_START = [0, 0, 0]
-T_END = [0, 0, 0]
+T_START = [0]
+T_END = [25200]
 
 threshhold_params = [4, 8, 2]
 
 probe_spacing = 50
 analysis_version = "ks2_5_no-drift-correction"
 out_dir = "ssd-raid0"
-tag = None
+tag = 'mtlb-test'
 
 CHECK_SPREADSHEET = "OFF"
 CHECK_DATA_QUALITY = "OFF"

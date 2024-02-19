@@ -8,24 +8,23 @@ from sort_utils import (
     check_probe_spacing,
 )
 
-subject = "ACR_28"
-experiment = "swi"
-recordings = ["swi-bl", "swi", "swi-post"]
-STORES = ["NNXo"]
+subject = "ACR_29"
+experiment = "pcal"
+recordings = ["pcal"]
+STORES = ["NNXo", "NNXr"]
 
-NCHANS = [1, 2, 3, 4, 5, 6, 7, 9, 10, 12, 13, 14, 15, 16]
-
-T_START = [0, 0, 0]
-T_END = [0, 0, 0]
+NCHANS = 16
+T_START = [0]
+T_END = [0]
 
 threshhold_params = [4, 8, 2]
 
 probe_spacing = 50
 analysis_version = "ks2_5_no-drift-correction"
 out_dir = "nvme"
-tag = "full_exp_bad_excluded"
+tag = None
 
-CHECK_SPREADSHEET = "OFF"
+CHECK_SPREADSHEET = "ON"
 CHECK_DATA_QUALITY = "OFF"
 # ------------------------------------------------------------------------
 # Run some checks
