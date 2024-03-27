@@ -19,7 +19,7 @@ def col_check(df_list):
             return False
     return True
 
-def load_spikes_polars(subject, sort_id, cols2drop=None, info=True, exclude_bad_units=True, exclude_bad_channels=True):
+def load_spikes_polars(subject, sort_id, cols2drop=None, info=True, exclude_bad_units=True, exclude_bad_channels=False):
     """load polars spike dataframe from parquet files, eager mode
 
     Parameters

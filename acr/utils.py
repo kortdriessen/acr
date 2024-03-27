@@ -9,7 +9,6 @@ materials_root = "/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/"
 opto_loc_root = "/Volumes/opto_loc/Data/"
 
 swi_subs_exps = {
-    "ACR_14": ["swi"],
     "ACR_16": ["swi2"],
     "ACR_17": ["swi"],
     "ACR_18": ["swi", "swisin"],
@@ -21,6 +20,8 @@ swi_subs_exps = {
     "ACR_26": ["swi", "swisin2"],
     "ACR_27": ["swi"],
     "ACR_28": ["swi", "swisin"],
+    "ACR_29": ["swi"],
+    "ACR_30": ["swi2"]
 }
 
 sub_probe_locations = {
@@ -36,6 +37,8 @@ sub_probe_locations = {
     "ACR_26": "parietal",
     "ACR_27": "parietal",
     "ACR_28": "parietal",
+    "ACR_29": "parietal",
+    "ACR_30": "parietal",
 }
 
 sub_exp_types = {
@@ -51,6 +54,8 @@ sub_exp_types = {
     "ACR_26": "som",
     "ACR_27": "control",
     "ACR_28": "som",
+    "ACR_29": "som", 
+    "ACR_30": "som",
 }
 
 
@@ -136,3 +141,9 @@ def elimate_bad_channels(subject, exp, stores=['NNXo', 'NNXr'], fp=True, bp=True
     chans_to_exclude = channel_exclusion[subject][exp]
     chans_to_keep = [chan for chan in all_chans if chan not in chans_to_exclude]
     recordings = acr.info_pipeline.get_exp_recs(subject, exp)
+    
+def get_recording_end_time(subject, recording, store):
+    end_info = yaml.safe_load(
+        open("/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/end_times.yaml", "r")
+    )
+    return end_info[subject][recording][store]['zero_period_start'][0]

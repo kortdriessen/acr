@@ -14,10 +14,10 @@ import acr.hypnogram_utils as hu
 import os
 import xarray as xr
 import acr
+import polars as pl
 
 from acr.utils import materials_root, opto_loc_root, raw_data_root
 bands = ku.spectral.bands
-
 
 class data_dict(dict):
     def __init__(self, *args, **kwargs):
@@ -45,6 +45,60 @@ def get_acr_paths(sub, xl):
         paths[x] = path
     return paths
 
+def get_bad_channels(subject, exp):
+    ex_path = f'{materials_root}bad_channels.xlsx'
+    ex= pd.read_excel(ex_path)
+    ex.dropna(inplace=True)
+    bad_chans = {}
+    if subject in ex['subject'].unique():
+        if exp in ex.sbj(subject)['exp'].unique():
+            stores = ex.sbj(subject).expmt(exp)['store'].unique()
+            for store in stores:
+                dead_chans = ex.sbj(subject).expmt(exp).prb(store)['dead_channels'].values[0]
+                if dead_chans == '-':
+                    continue
+                elif type(dead_chans) == str:
+                    dead_chans = dead_chans.split(',')
+                    dead_chans = [int(chan) for chan in dead_chans]
+                    bad_chans[store] = dead_chans
+                elif type(dead_chans) == int:
+                    bad_chans[store] = [dead_chans]
+                else:
+                    continue
+        return bad_chans
+    return []
+
+def nuke_bad_chans(ds, subject, exp):
+    bad_chans = get_bad_channels(subject, exp)
+    if bad_chans == []:
+        return ds
+    stores_with_bad_chans = bad_chans.keys()
+    if 'store' not in ds.dims:
+        stores = [str(ds.store.values)]
+        assert len(stores) == 1
+    elif 'store' in ds.dims:
+        stores = ds.store.values
+    else:
+        print('No store dimension or coordinate in dataset')
+        return ds
+    for store in stores:
+        if store in stores_with_bad_chans:
+            for chan in bad_chans[store]:
+                if chan not in ds.channel.values:
+                    print(f'Channel {chan} not in {store} for {subject} {exp}')
+                    continue
+                if type(ds) == xr.Dataset:
+                    for var_name in ds.data_vars:
+                        if 'store' in ds.dims:
+                            ds[var_name].loc[{'channel': chan, 'store': store}] = np.nan
+                        elif 'store' not in ds.dims:
+                            ds[var_name].loc[{'channel': chan}] = np.nan
+                elif type(ds) == xr.DataArray:
+                    if 'store' in ds.dims:
+                        ds.loc[{'channel': chan, 'store': store}] = np.nan
+                    elif 'store' not in ds.dims:
+                        ds.loc[{'channel': chan}] = np.nan
+    return ds
 
 # ------------------------------------------ Hypnogram io -------------------------------------#
 def get_chunk_num(name):
@@ -124,13 +178,12 @@ def load_hypno(subject, recording, corrections=False, update=True, float=False):
             h = kh.load_hypno_file(hp, end)
             all_hypnos.append(h)
             end = h.end_time.max()
-    hypno = pd.concat(all_hypnos)
     
+    hypno = pd.concat(all_hypnos)
     hypno = hypno.reset_index(drop=True)
     hypno = DatetimeHypnogram(hypno)
     if float:
         hypno = hypno.as_float()
-    
     if corrections:
         return hu.standard_hypno_corrections(hypno)
     else:
@@ -166,6 +219,8 @@ def load_hypno_full_exp(subject, exp, corrections=True, float=False, update=True
         if corrections == True:
             hypno_final = hu.standard_hypno_corrections(hypno_final.reset_index(drop=True))
         return hypno_final
+
+
 
 # ---------------------------------------------------- Data + Spectral io --------------------------------------
 
@@ -243,17 +298,7 @@ def load_raw_data(subject, recording, store, select=None, hypno=None, exclude_ba
             print(f'{recording} has no hypnogram, added no_states array dataset')
     if exclude_bad_channels:
         exp = aip.get_exp_from_rec(subject, recording)
-        if 'NNX' in store:
-            bad_chans = aip.check_for_bad_channels(subject, exp)
-            # a check in case the data has already been saved with bad channels excluded
-            to_remove = []
-            for ch in bad_chans:
-                if (ch in data.channel.values) == False:
-                    to_remove.append(ch)
-            for ch in to_remove:
-                bad_chans.remove(ch) 
-            if bad_chans != []:
-                data = data.drop_sel({'channel': bad_chans})
+        data = nuke_bad_chans(data, subject, exp)
                 
     return data
 
@@ -289,18 +334,7 @@ def load_bandpower_file(subject, recording, store, hypno=True, update_hyp=True, 
             data = data.assign_coords(state=("datetime", states))
     if exclude_bad_channels:
         exp = aip.get_exp_from_rec(subject, recording)
-        if 'NNX' in store:
-            bad_chans = aip.check_for_bad_channels(subject, exp)
-            # a check in case the data has already been saved with bad channels excluded
-            to_remove = []
-            for ch in bad_chans:
-                if (ch in data.channel.values) == False:
-                    print(f'{recording} has no channel {ch}')
-                    to_remove.append(ch)
-            for ch in to_remove:
-                bad_chans.remove(ch)
-            if bad_chans != []:
-                data = data.drop_sel({'channel': bad_chans})
+        data = nuke_bad_chans(data, subject, exp)
     return data
 
 def load_concat_bandpower(subject, recordings, stores, hypno=True, update_hyp=True, select=None, exclude_bad_channels=True):
@@ -350,3 +384,32 @@ def load_concat_raw_data(subject, recordings, stores, select=None):
     
     data = xr.concat(data_stores, dim='store')
     return data
+
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------
+# FUNCTIONS FOR WORKING WITH THE PUB/DATA FOLDER 
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------
+from acr.utils import swi_subs_exps, sub_probe_locations, sub_exp_types
+
+def read_full_df(folder='rebound_data_1h', subs=None, method='pandas'):
+    if subs is None:
+        subs = swi_subs_exps.keys()
+    
+    data_directory = f'/home/kdriessen/gh_master/acr/pub/data/{folder}'
+    parquet_files = [f for f in os.listdir(data_directory) if f.endswith('.parquet')]
+    
+    dataframes = []  # List to hold all dataframes
+    for file in parquet_files:
+        file_path = os.path.join(data_directory, file)
+        if method == 'pandas':
+            df = pd.read_parquet(file_path)
+        elif method == 'polars':
+            df = pl.read_parquet(file_path)
+        dataframes.append(df)
+    if method == 'pandas':
+        reb_df = pd.concat(dataframes, ignore_index=True)
+    elif method == 'polars':
+        reb_df = pl.concat(dataframes)
+    if method == 'pandas':
+        if 'Unnamed: 0' in reb_df.columns:
+            reb_df = reb_df.drop(columns=['Unnamed: 0'])
+    return reb_df

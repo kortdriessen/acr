@@ -27,7 +27,7 @@ def get_individual_pulse_times(subject, recording, store):
     return pulse_ons, pulse_offs
 
 
-def get_pulse_train_times(subject, recording, store):
+def get_pulse_train_times(subject, recording, store, times=False):
     """Get the index values of the pulse train onsets and offsets
 
     Args:
@@ -42,12 +42,21 @@ def get_pulse_train_times(subject, recording, store):
     pulse_offs = pd.to_datetime(pulse_offs)
     train_ons = [0]
     train_offs = []
+    if times == True:
+        train_ons = [pulse_ons[0]]
     for i in np.arange(0, (len(pulse_ons) - 1)):
         diff = pulse_ons[i + 1] - pulse_ons[i]
         if diff.total_seconds() > 5:
-            train_ons.append(i + 1)
-            train_offs.append(i)
-    train_offs.append(len(pulse_ons) - 1)
+            if times == True:
+                train_ons.append(pulse_ons[i + 1])
+                train_offs.append(pulse_offs[i])
+            else:
+                train_ons.append(i + 1)
+                train_offs.append(i)
+    if times == True:
+        train_offs.append(pulse_offs[len(pulse_ons) - 1])
+    else:
+        train_offs.append(len(pulse_ons) - 1)
     return train_ons, train_offs
 
 
@@ -128,6 +137,7 @@ def get_total_spike_rate(df, pons, poffs):
         )
         on_spike_counts = pl.concat([on_spike_counts, pulse_on_count])
         total_on_time += (poffs[i] - pons[i]) / np.timedelta64(1, "s")
+        print(len(on_spike_counts['cluster_id'].unique()))
 
     # Then count all of the spikes and total time for pulse-OFF
     for i in np.arange(0, len(pons) - 1):
@@ -276,3 +286,18 @@ def clus_check(subject, exp, probe, clus):
     else:
         if clus in ex:
             return False
+
+
+def relevant_stim_info(subject, exp):
+    """Gets the stim start, stim_end, and pulse train times for a given subject and experiment.
+    returns:
+    --------
+    stim_start, stim_end, pon, poff : pd.Timestamp"""
+    store = 'Wavt' if 'swisin' in exp else 'Pu1_'
+    if subject == 'ACR_26':
+        store = 'Pu1_'
+    if subject == 'ACR_28':
+        store = 'Pu1_'
+    stim_start, stim_end = acr.stim.stim_bookends(subject, exp)
+    pon, poff = acr.stim.get_pulse_train_times(subject, exp, store, times=True)
+    return stim_start, stim_end, pon, poff
