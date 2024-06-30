@@ -42,3 +42,6 @@ __pycache__/
 
 # all csv files
 *.csv
+
+# all parquet files
+*.parquet
