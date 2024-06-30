@@ -34,7 +34,11 @@ def load_subject_info(subject):
     path = f"{materials_root}{subject}/subject_info.yml"
     with open(path, "r") as f:
         data = yaml.safe_load(f)
-    return benedict(data)
+    is_empty = data == None
+    if is_empty:
+        return None
+    else:
+        return benedict(data)
 
 def get_subject_list():
     important_recs = yaml.safe_load(open(f"{materials_root}important_recs.yaml", "r"))
@@ -312,6 +316,10 @@ def update_subject_info(subject, impt_only=True):
     recordings = get_all_tank_keys(root, subject)
     with open(path) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
+    if data == None:
+        subject_info_gen(subject)
+        with open(path) as f:
+            data = yaml.load(f, Loader=yaml.FullLoader)
     impt_recs = get_impt_recs(subject)
     new_recs = []
     for rec in recordings:
@@ -389,9 +397,9 @@ def redo_subject_info(subject, recs=[]):
         if rec in si["stim-exps"].keys():
             si["stim-exps"].pop(rec)
     # then resave the subject info:
-    acr.info_pipeline.save_subject_info(subject, si)
+    save_subject_info(subject, si)
     # now we update the subject_info file, which should force it to recalculate rec_times and stim_info for each rec:
-    acr.info_pipeline.update_subject_info(subject)
+    update_subject_info(subject)
     return
 
 
@@ -636,7 +644,7 @@ def get_wav2_on_and_off(wav2_up):
     return ons, offs
 
 
-def stim_info_to_yaml(subject, exps):
+def stim_info_to_yaml(subject, exps, wavt_thresh=1.7e6):
     """
     subject = subject name (string)
     exps = should be the 'stim-exps' key from the params dict given to subject_info_gen
@@ -673,8 +681,11 @@ def stim_info_to_yaml(subject, exps):
                 stim_info[exp][store]["onsets"] = on_str
                 stim_info[exp][store]["offsets"] = off_str
             elif store == "Wavt":
-                wavt_up = get_wavt_up_data(subject, exp)
+                wavt_up = get_wavt_up_data(subject, exp, thresh=wavt_thresh)
                 on, off = get_wavt_on_and_off(wavt_up)
+                if len(on)>100:
+                    wavt_up = get_wavt_up_data(subject, exp, thresh=1.1e6)
+                    on, off = get_wavt_on_and_off(wavt_up)
                 on_list = list(on)
                 on_str = [str(x) for x in on_list]
                 off_list = list(off)
@@ -703,8 +714,10 @@ def stim_info_to_yaml(subject, exps):
     return
 
 
-def get_wavt_up_data(subject, exp, t1=0, t2=0, store="Wavt", thresh=1.1e6):
+def get_wavt_up_data(subject, exp, t1=0, t2=0, store="Wavt", thresh=None):
     """returns the times where Wavt store is greater than 1.5, which should equal the laser on times"""
+    if thresh == None:
+        thresh = 1.1e6
     info = load_subject_info(subject)
     w = kx.io.get_data(info["paths"][exp], store, t1=t1, t2=t2)
     w_on = w.where(w > thresh, drop=True)
@@ -827,7 +840,7 @@ def get_channel_map(subject):
     for store in stores:
         histo_path = f'{materials_root}{subject}/histology/herbs/{store}.pkl'
         if not os.path.exists(histo_path):
-            return channel_map
+            return channel_map_null(stores=stores, nchans=16)
         probe = pickle.load(open(histo_path, 'rb'))
         channel_codes = probe['data']['sites_label']
         channel_codes = list(channel_codes[0])
@@ -850,6 +863,14 @@ def get_channel_map(subject):
         for i, code in enumerate(channel_codes):
             chan = i+1
             channel_map[store][str(chan)] = code_map[str(code)]
+    return channel_map
+
+def channel_map_null(stores=['NNXo', 'NNXr'], nchans=16):
+    channel_map = {}
+    for probe in stores:
+        channel_map[probe] = {}
+        for chan in range(1, nchans+1):
+            channel_map[probe][str(chan)] = {'region': 'unknown', 'layer': 'unknown'}
     return channel_map
 
 def add_channel_map_to_subject_info(subject):
