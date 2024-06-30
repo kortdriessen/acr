@@ -386,11 +386,12 @@ if st.button("Update master_rec_quality.xlsx"):
                         .index.values[0]
                     )
                     new_rec_quality.at[ix, "duration_match"] = diff
+                    print(subject, rec, store, diff)
 
     # save the new_rec_quality sheet
     new_rec_quality.to_excel(recq_path, index=False)
     format_rec_quality(recq_path)
-    st.write("Successfully updated master_rec_quality.xlsx")
+    st.write("Successfully updated master_rec_quality.xlsx") #TODO: duration match is not filling in zero, is just leaving it blank.
 
 st.markdown("---")
 
