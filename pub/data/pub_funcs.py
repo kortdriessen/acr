@@ -15,100 +15,14 @@ REBOUND_LENGTH = '1h'
 REL_STATE = 'NREM'
 data_path_root = '/home/kdriessen/gh_master/acr/pub/data'
 
+def check_df(subject, exp, type='reb'):
+    if type == 'reb':
+        path = f'./rebound_data_1h/{subject}--{exp}--reb.parquet'
+    elif type == 'sd':
+        path = f'./sd_data/{subject}--{exp}--sd.parquet'
+    return os.path.exists(path)
 
-def check_df(subject, exp, path):
-    if os.path.exists(path) == False:
-        already_added = False
-        df = pd.DataFrame()
-        return df, already_added
-    df = pd.read_csv(path)
-    for col in df.columns:
-        if "Unnamed" in col:
-            del df[col]
-    already_added = not df.loc[(df.subject==subject)&(df.exp==exp)].empty
-    return df, already_added
-
-def check_df_fast(subject, exp, df):
-    for col in df.columns:
-        if "Unnamed" in col:
-            del df[col]
-    already_added = not df.loc[(df.subject==subject)&(df.exp==exp)].empty
-    return df, already_added
-
-def get_rebound_df(subject, exp, reprocess_existing=False, save=True):
-    """Generate a dataframe of bandpower values during the rebound period following sleep deprivation
-
-    Parameters
-    ----------
-    subject : str
-        subject name
-    exp : str
-        experiment name
-    reprocess_existing : bool, optional
-        whether to reprocess data that is already in the dataframe, by default False
-    save : bool, optional
-        whether to save the data, by default True
-    """
-    reb_df, already_added = check_df(subject, exp, f'{data_path_root}/reb_df.csv')
-    if already_added == True:
-        if reprocess_existing:
-            reb_df = reb_df.loc[(reb_df.subject!=subject)|(reb_df.exp!=exp)]
-        else:
-            return
-    
-    # load some basic information, and the hypnogram
-    h = acr.io.load_hypno_full_exp(subject, exp, update=True)
-    rec_times = acr.info_pipeline.subject_info_section(subject, 'rec_times')
-    params = acr.info_pipeline.subject_params(subject)
-    stores = params['time_stores']
-    sort_ids = [f'{exp}-{store}' for store in stores]
-    recordings = acr.info_pipeline.get_exp_recs(subject, exp)
-    
-    # load some temporal information about the rebound, baseline, sd, etc. 
-    stim_start, stim_end = acr.stim.stim_bookends(subject, exp)
-    reb_start = h.hts(stim_end-pd.Timedelta('15min'), stim_end+pd.Timedelta('1h')).st('NREM').iloc[0].start_time
-    if reb_start < stim_end:
-        stim_end_hypno = h.loc[(h.start_time<stim_end)&(h.end_time>stim_end)] # if stim time is in the middle of a nrem bout, then it can be the start of the rebound
-        if stim_end_hypno.state.values[0] == 'NREM':
-            reb_start = stim_end
-        else:
-            raise ValueError('Rebound start time is before stim end time, need to inspect')
-
-    assert reb_start >= stim_end, 'Rebound start time is before stim end time'
-
-    bl_start_actual = rec_times[f'{exp}-bl']["start"]
-    bl_day = bl_start_actual.split("T")[0]
-    bl_start = pd.Timestamp(bl_day + "T09:00:00")
-
-    if f'{exp}-sd' in rec_times.keys():
-        sd_rec = f'{exp}-sd'
-        sd_end = pd.Timestamp(rec_times[sd_rec]['end'])
-    else:
-        sd_rec = exp
-        sd_end = stim_start
-    sd_start_actual = pd.Timestamp(rec_times[sd_rec]['start'])
-    sd_day = rec_times[sd_rec]['start'].split("T")[0]
-    sd_start = pd.Timestamp(sd_day + "T09:00:00")
-    
-    # Load the BANDPOWER DATA
-    #-------------------------------
-    bp = acr.io.load_concat_bandpower(subject, recordings, stores, hypno=True, update_hyp=False);
-    bp_rel = kde.xr.utils.rel_by_store(bp, state=REL_STATE, t1=None, t2=None);
-
-    # Get the rebound values:
-    rebound_dur = pd.Timedelta(REBOUND_LENGTH)
-    reb_bp = bp_rel.ts(reb_start, reb_start+rebound_dur) 
-    bp_df = kde.xr.spectral.bp_melt(reb_bp.to_dataframe().reset_index()) #convert to dataframe
-    bp_df['region'] = sub_probe_locations[subject]
-    bp_df['exp_type'] = sub_exp_types[subject]
-    bp_df['subject'] = subject
-    bp_df['exp'] = exp
-    reb_df = pd.concat([reb_df, bp_df])
-    if save:
-        reb_df.to_csv(f'{data_path_root}/reb_df.csv') 
-    return
-
-def get_stim_df(subject, exp, reprocess_existing=False, save=True):
+def get_sd_df(subject, exp, reprocess_existing=False, save=True):
     
     """Generate a dataframe of bandpower values during the stimulation period at the end of sleep deprivation
 
@@ -124,16 +38,15 @@ def get_stim_df(subject, exp, reprocess_existing=False, save=True):
         whether to save the data, by default True
     """
     
-    stim_df, already_added = check_df(subject, exp, f'{data_path_root}/stim_df.csv')
-    if already_added == True:
-        if reprocess_existing:
-            stim_df = stim_df.loc[(stim_df.subject!=subject)|(stim_df.exp!=exp)]
-        else:
-            print(f'Already added {subject} | {exp}')
+    already_processed = check_df(subject, exp, type='sd')
+    if already_processed == True:
+        if reprocess_existing == False:
             return
+        else:
+            os.remove(f'./sd_data/{subject}--{exp}--sd.parquet')
     
     # load some basic information, and the hypnogram
-    h = acr.io.load_hypno_full_exp(subject, exp, update=True)
+    h = acr.io.load_hypno_full_exp(subject, exp, update=False)
     rec_times = acr.info_pipeline.subject_info_section(subject, 'rec_times')
     params = acr.info_pipeline.subject_params(subject)
     stores = params['time_stores']
@@ -172,107 +85,20 @@ def get_stim_df(subject, exp, reprocess_existing=False, save=True):
     bp_rel = kde.xr.utils.rel_by_store(bp, state=REL_STATE, t1=None, t2=None);
 
     # Get the SD values during the experimental manipulation:
-    sd_bp = bp_rel.ts(stim_start, stim_end) 
+    sd_bp = bp_rel.ts(sd_start, stim_end) 
     bp_df = kde.xr.spectral.bp_melt(sd_bp.to_dataframe().reset_index()) #convert to dataframe
     bp_df['region'] = sub_probe_locations[subject]
     bp_df['exp_type'] = sub_exp_types[subject]
     bp_df['subject'] = subject
     bp_df['exp'] = exp
-    stim_df = pd.concat([stim_df, bp_df])
+    stim_df = add_layer_info_to_df(bp_df, subject)
     if save:
-        stim_df.to_csv(f'{data_path_root}/stim_df.csv') 
+        stim_df.to_parquet(f'./sd_data/{subject}--{exp}--sd.parquet', version="2.6") 
     return
-
-def get_stim_df_fast(subject_list, exp=None, reprocess_existing=False, save=True):
-    
-    """Generate a dataframe of bandpower values during the stimulation period at the end of sleep deprivation
-
-    Parameters
-    ----------
-    subject : str
-        subject name
-    exp : str
-        experiment name
-    reprocess_existing : bool, optional
-        whether to reprocess data that is already in the dataframe, by default False
-    save : bool, optional
-        whether to save the data, by default True
-    """
-    
-    from acr.utils import swi_subs_exps
-    
-    for subject in subject_list:
-        if exp is None:
-            exp_list = swi_subs_exps[subject]
-        elif type(exp) == str:
-            exp_list = [exp]
-        else:
-            exp_list = []
-        for exp in exp_list:
-            stim_df, already_added = check_df(subject, exp, f'{data_path_root}/stim_df.csv')
-            if already_added == True:
-                if reprocess_existing:
-                    stim_df = stim_df.loc[(stim_df.subject!=subject)|(stim_df.exp!=exp)]
-                else:
-                    print(f'Already added {subject} | {exp}')
-                    return
-            
-            # load some basic information, and the hypnogram
-            h = acr.io.load_hypno_full_exp(subject, exp, update=True)
-            rec_times = acr.info_pipeline.subject_info_section(subject, 'rec_times')
-            params = acr.info_pipeline.subject_params(subject)
-            stores = params['time_stores']
-            sort_ids = [f'{exp}-{store}' for store in stores]
-            recordings = acr.info_pipeline.get_exp_recs(subject, exp)
-            
-            # load some temporal information about the rebound, baseline, sd, etc. 
-            stim_start, stim_end = acr.stim.stim_bookends(subject, exp)
-            reb_start = h.hts(stim_end-pd.Timedelta('15min'), stim_end+pd.Timedelta('1h')).st('NREM').iloc[0].start_time
-            if reb_start < stim_end:
-                stim_end_hypno = h.loc[(h.start_time<stim_end)&(h.end_time>stim_end)] # if stim time is in the middle of a nrem bout, then it can be the start of the rebound
-                if stim_end_hypno.state.values[0] == 'NREM':
-                    reb_start = stim_end
-                else:
-                    raise ValueError('Rebound start time is before stim end time, need to inspect')
-
-            assert reb_start >= stim_end, 'Rebound start time is before stim end time'
-
-            bl_start_actual = rec_times[f'{exp}-bl']["start"]
-            bl_day = bl_start_actual.split("T")[0]
-            bl_start = pd.Timestamp(bl_day + "T09:00:00")
-
-            if f'{exp}-sd' in rec_times.keys():
-                sd_rec = f'{exp}-sd'
-                sd_end = pd.Timestamp(rec_times[sd_rec]['end'])
-            else:
-                sd_rec = exp
-                sd_end = stim_start
-            sd_start_actual = pd.Timestamp(rec_times[sd_rec]['start'])
-            sd_day = rec_times[sd_rec]['start'].split("T")[0]
-            sd_start = pd.Timestamp(sd_day + "T09:00:00")
-            
-            # Load the BANDPOWER DATA
-            #-------------------------------
-            bp = acr.io.load_concat_bandpower(subject, recordings, stores, hypno=True, update_hyp=False);
-            bp_rel = kde.xr.utils.rel_by_store(bp, state=REL_STATE, t1=None, t2=None);
-
-            # Get the SD values during the experimental manipulation:
-            sd_bp = bp_rel.ts(stim_start, stim_end) 
-            bp_df = kde.xr.spectral.bp_melt(sd_bp.to_dataframe().reset_index()) #convert to dataframe
-            bp_df['region'] = sub_probe_locations[subject]
-            bp_df['exp_type'] = sub_exp_types[subject]
-            bp_df['subject'] = subject
-            bp_df['exp'] = exp
-            stim_df = pd.concat([stim_df, bp_df])
-            if save:
-                stim_df.to_csv(f'{data_path_root}/stim_df.csv') 
-            return
-                
-            
 
 def add_layer_info_to_df(df, subject):
     if 'layer' not in df.columns:
-        df['layer'] = 0
+        df['layer'] = 'no_layer_info'
     chan_map = acr.info_pipeline.subject_info_section(subject, 'channel_map')
     if chan_map == None:
         print(f'No channel map for {subject}')
@@ -299,3 +125,78 @@ def add_layer_info_to_df(df, subject):
             layer = chan_map[store][str(chan)]['layer']
             df.loc[(df.subject==subject) & (df.prb(store)['channel']==chan), 'layer'] = layer
     return df
+
+
+
+def get_rebound_df(subject, exp, reprocess_existing=False, save=True):
+    """Generate a dataframe of bandpower values during the rebound period following sleep deprivation
+
+    Parameters
+    ----------
+    subject : str
+        subject name
+    exp : str
+        experiment name
+    reprocess_existing : bool, optional
+        whether to reprocess data that is already in the dataframe, by default False
+    save : bool, optional
+        whether to save the data, by default True
+    """
+    already_processed = check_df(subject, exp, type='reb')
+    if already_processed == True:
+        if reprocess_existing == False:
+            return
+        else:
+            os.remove(f'./rebound_data_1h/{subject}--{exp}--reb.parquet')
+
+    # load some basic information, and the hypnogram
+    h = acr.io.load_hypno_full_exp(subject, exp, update=False)
+    rec_times = acr.info_pipeline.subject_info_section(subject, 'rec_times')
+    params = acr.info_pipeline.subject_params(subject)
+    stores = params['time_stores']
+    sort_ids = [f'{exp}-{store}' for store in stores]
+    recordings = acr.info_pipeline.get_exp_recs(subject, exp)
+    
+    # load some temporal information about the rebound, baseline, sd, etc. 
+    stim_start, stim_end = acr.stim.stim_bookends(subject, exp)
+    reb_start = h.hts(stim_end-pd.Timedelta('15min'), stim_end+pd.Timedelta('1h')).st('NREM').iloc[0].start_time
+    if reb_start < stim_end:
+        stim_end_hypno = h.loc[(h.start_time<stim_end)&(h.end_time>stim_end)] # if stim time is in the middle of a nrem bout, then it can be the start of the rebound
+        if stim_end_hypno.state.values[0] == 'NREM':
+            reb_start = stim_end
+        else:
+            raise ValueError('Rebound start time is before stim end time, need to inspect')
+
+    assert reb_start >= stim_end, 'Rebound start time is before stim end time'
+
+    bl_start_actual = rec_times[f'{exp}-bl']["start"]
+    bl_day = bl_start_actual.split("T")[0]
+    bl_start = pd.Timestamp(bl_day + "T09:00:00")
+
+    if f'{exp}-sd' in rec_times.keys():
+        sd_rec = f'{exp}-sd'
+        sd_end = pd.Timestamp(rec_times[sd_rec]['end'])
+    else:
+        sd_rec = exp
+        sd_end = stim_start
+    sd_start_actual = pd.Timestamp(rec_times[sd_rec]['start'])
+    sd_day = rec_times[sd_rec]['start'].split("T")[0]
+    sd_start = pd.Timestamp(sd_day + "T09:00:00")
+    
+    # Load the BANDPOWER DATA
+    #-------------------------------
+    bp = acr.io.load_concat_bandpower(subject, recordings, stores, hypno=True, update_hyp=False, exclude_bad_channels=True);
+    bp_rel = kde.xr.utils.rel_by_store(bp, state=REL_STATE, t1=None, t2=None);
+
+    # Get the rebound values:
+    rebound_dur = pd.Timedelta(REBOUND_LENGTH)
+    reb_bp = bp_rel.ts(reb_start, reb_start+rebound_dur) 
+    bp_df = kde.xr.spectral.bp_melt(reb_bp.to_dataframe().reset_index()) #convert to dataframe
+    bp_df['region'] = sub_probe_locations[subject]
+    bp_df['exp_type'] = sub_exp_types[subject]
+    bp_df['subject'] = subject
+    bp_df['exp'] = exp
+    bp_df = add_layer_info_to_df(bp_df, subject)
+    if save:
+        bp_df.to_parquet(f'./rebound_data_1h/{subject}--{exp}--reb.parquet', version="2.6") 
+    return
