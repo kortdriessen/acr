@@ -80,7 +80,7 @@ def get_sorting_stim_start(subject, exp):
     return time_to_stim
 
 
-def stim_bookends(subject, exp):
+def stim_bookends(subject, exp, store=None):
     """gives the starting and ending datetimes that a stimulation happened for a given experiment.
     Returns:
     ---------
@@ -91,6 +91,8 @@ def stim_bookends(subject, exp):
     stim_store = sub_info["stim-exps"][exp]
     if type(stim_store) == list: #this should be the Pu1_ store in the few cases where there are multiple stim stores
         stim_store = stim_store[0]
+    if store != None:
+        stim_store = store
     stim_start = pd.Timestamp(sub_info["stim_info"][exp][stim_store]["onsets"][0])
     stim_end = pd.Timestamp(sub_info["stim_info"][exp][stim_store]["offsets"][-1])
     return stim_start, stim_end
