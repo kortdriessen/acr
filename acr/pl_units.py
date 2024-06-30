@@ -400,10 +400,10 @@ def time_zones_to_unit_df(df, t1, t2, label):
 def plot_fr_by_probe(fr_rel, hyp, ax=None, color=False):
     ax = kp.check_ax(ax)
     if color == False:
-        sns.lineplot(data=fr_rel, x="datetime", y="fr_rel", hue="probe", ax=ax)
+        sns.lineplot(data=fr_rel.to_pandas(), x="datetime", y="fr_rel", hue="probe", ax=ax)
     else:
         sns.lineplot(
-            data=fr_rel,
+            data=fr_rel.to_pandas(),
             x="datetime",
             y="fr_rel",
             hue="probe",
