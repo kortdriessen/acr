@@ -2,6 +2,7 @@ import streamlit as st
 from kdephys.plot.main import *
 import pandas as pd
 import kdephys.hypno.hypno as kh
+import numpy as np
 
 
 @st.cache()
@@ -36,6 +37,7 @@ hd[comp] = kh.load_hypno_file(path2, st=None, dt=False)
 for hyp_name in hd.keys():
     st.markdown(f"## {hyp_name}")
     fo = hd[hyp_name].fractional_occupancy()
+    fo = fo*100
     st.write(fo)
 
 f, ax = plt.subplots(2, 1, figsize=(30, 10))
@@ -43,5 +45,5 @@ for i, hyp_name in enumerate(hd.keys()):
     x = np.arange(0, 7200, 100)
     ax[i].plot(x, np.ones_like(x), color="k", alpha=0.5)
     ax[i].set_title(hyp_name)
-    shade_hypno_for_me(hd[hyp_name], ax=ax[i])
+    shade_hypno_for_me(hd[hyp_name], ax=ax[i], alpha=0.8)
 st.pyplot(f)

@@ -284,7 +284,21 @@ if "Generate Config Files" in to_do:
     channels = st.multiselect(
         "Choose channels",
         _channels,
-        default=["EMGr-1", "EEGr-1", "EEGr-2", "NNXr-2", "NNXr-6", "NNXr-9", "NNXr-12", "NNXr-16", "NNXo-2", "NNXo-6", "NNXo-9", "NNXo-12", "NNXo-16"],
+        default=[
+                 "EMGr-1", 
+                 "EEGr-1", 
+                 "EEGr-2", 
+                 "NNXr-2", 
+                 "NNXr-6", 
+                 "NNXr-9", 
+                 "NNXr-12", 
+                 "NNXr-16", 
+                 "NNXo-2", 
+                 "NNXo-6", 
+                 "NNXo-9", 
+                 "NNXo-12", 
+                 "NNXo-16", 
+                 ]
     )
     if recording not in list(rec_times.keys()):
         st.write(f"{rec_times.keys()}")

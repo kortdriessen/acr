@@ -41,7 +41,7 @@ if st.button("Process duplicates"):
         for store in stores:
             # First thing we do is check duplication_info.yaml for whether duplicates actually exist
             if dpf._check_for_dups(subject, rec, store) == False:
-                Print(f"No duplicates found for {subject} {rec} {store}")
+                print(f"No duplicates found for {subject} {rec} {store}")
                 continue
 
             assert dpf._check_for_dups(subject, rec, store) == True

@@ -1,5 +1,5 @@
 # Set custom colors. All colors are in web style hex format.
-axes.prop_cycle: cycler('color', ['363636', '3f5cfc'])
+axes.prop_cycle: cycler('color', ['3f5cfc', '363636'])
 
 # Main Figure Properties
 figure.facecolor: FFFFFF
