@@ -1,4 +1,4 @@
-#from offproj import core, tdt_core
+from offproj import core, tdt_core
 import acr
 import numpy as np
 import pandas as pd
@@ -20,41 +20,26 @@ def assign_recordings_to_off_df(off_df, recordings, durations):
     off_df.loc[off_df['start_time'] > total_duration, "recording"] = recordings[-1]
     return off_df
 
-def assign_datetimes_to_off_df(off_df, recordings, start_times, durations):
-    dti_starts = pd.DatetimeIndex([])
-    dti_ends = pd.DatetimeIndex([])
-    current_rec_zero = 0
-    for r, s, d in zip(recordings, start_times, durations):
-        
-        if r not in off_df['recording'].unique():
-            continue
-        
-        rec_df = off_df.loc[off_df.recording == r]
-        start_times = rec_df['start_time'].values
-        end_times = rec_df['end_time'].values
-        
-        assert np.min(start_times) == start_times[0]
-        assert np.min(end_times) == end_times[0]
-        
-        
-        start_times_rel = start_times - current_rec_zero
-        end_times_rel = end_times - current_rec_zero
-        
-        current_rec_zero += d
-        
-        start_timedeltas = pd.to_timedelta(start_times_rel, unit="s")
-        end_timedeltaa = pd.to_timedelta(end_times_rel, unit="s")
-        start_datetimes = s + start_timedeltas
-        end_datetimes = s + end_timedeltaa
-        
-        dti_starts = dti_starts.append(start_datetimes)
-        dti_ends = dti_ends.append(end_datetimes)
+def assign_datetimes_to_off_df(offs, sorting_start):
+    starts = offs['start_time'].values
+    ends = offs['end_time'].values
+    starts_td = pd.to_timedelta(starts, unit='s')
+    ends_td = pd.to_timedelta(ends, unit='s')
+    starts_dt = sorting_start + starts_td
+    ends_dt = sorting_start + ends_td
+    offs['start_datetime'] = starts_dt
+    offs['end_datetime'] = ends_dt
+    return offs
 
-    off_df["start_datetime"] = dti_starts
-    off_df["end_datetime"] = dti_ends
-    return off_df
+def add_recordings_to_offdf(df, recs, starts, durations):
+    for rec, start, duration in zip(recs, starts, durations):
+        start = pd.Timestamp(start)
+        end = start + pd.Timedelta(duration, unit='s')
+        df.loc[df['start_datetime'].between(start, end), 'rec'] = rec
+    return df
 
-def complete_exp_off(subject, exp, probes=['NNXr', 'NNXo'], sort_id=None, structure=None, which='ap', sensible_filters=True):
+
+def load_complete_exp_off(subject, exp, probes=['NNXr', 'NNXo'], sort_id=None, structure=None, which='ap', sensible_filters=True):
     if sort_id is None:
         sort_id = f'{exp}-{probes[0]}'
     
@@ -70,7 +55,7 @@ def complete_exp_off(subject, exp, probes=['NNXr', 'NNXo'], sort_id=None, struct
     offdf = pd.concat(off_dfs_by_probe.values())
     if sensible_filters:
         offdf = offdf.loc[(offdf['median_duration']>.04) & (offdf['median_duration']<0.8)]
-    return offdf
+    return offdf.sort_values('start_datetime', inplace=True)
 
 def get_current_off_processing():
     cur_offs = pd.DataFrame(columns=['subject', 'exp', 'result_nnxo', 'result_nnxr'])
