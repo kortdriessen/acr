@@ -422,7 +422,7 @@ def plot_fr_by_cluster(fr_rel, hyp):
             df2plot = fr_rel.pclus(probe, cluster_id)
             f, ax = plt.subplots()
             ax = sns.lineplot(
-                data=df2plot, x="datetime", y="fr_rel", ax=ax, color=color
+                data=df2plot.to_pandas(), x="datetime", y="fr_rel", ax=ax, color=color
             )
             kp.shade_hypno_for_me(hyp, ax)
             ax.set_title(f"{probe} | Cluster = {cluster_id}")
