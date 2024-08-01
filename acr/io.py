@@ -413,3 +413,10 @@ def read_full_df(folder='rebound_data_1h', subs=None, method='pandas'):
         if 'Unnamed: 0' in reb_df.columns:
             reb_df = reb_df.drop(columns=['Unnamed: 0'])
     return reb_df
+
+def read_subject_rebdf(sub, exp, folder='rebound_data_1h'):
+    data_path = f'/home/kdriessen/gh_master/acr/pub/data/{folder}/{sub}--{exp}--reb.parquet'
+    df = pd.read_parquet(data_path)
+    if 'Unnamed: 0' in df.columns:
+        df = df.drop(columns=['Unnamed: 0'])
+    return df

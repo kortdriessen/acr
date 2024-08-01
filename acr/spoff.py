@@ -5,20 +5,7 @@ import pandas as pd
 from acr.utils import swi_subs_exps, sub_probe_locations, sub_exp_types
 import matplotlib.pyplot as plt
 import seaborn as sns
-
-def assign_recordings_to_off_df(off_df, recordings, durations):
-    prev_split = 0
-    for r, d in zip(recordings, durations):
-        border1 = prev_split
-        border2 = prev_split + d
-        off_df.loc[
-            np.logical_and(off_df['start_time'] > border1, off_df['end_time'] <= border2),
-            "recording",
-        ] = r
-        prev_split += d
-    total_duration = np.sum(durations)
-    off_df.loc[off_df['start_time'] > total_duration, "recording"] = recordings[-1]
-    return off_df
+import os
 
 def assign_datetimes_to_off_df(offs, sorting_start):
     starts = offs['start_time'].values
@@ -31,7 +18,7 @@ def assign_datetimes_to_off_df(offs, sorting_start):
     offs['end_datetime'] = ends_dt
     return offs
 
-def add_recordings_to_offdf(df, recs, starts, durations):
+def assign_recordings_to_off_df(df, recs, starts, durations):
     for rec, start, duration in zip(recs, starts, durations):
         start = pd.Timestamp(start)
         end = start + pd.Timedelta(duration, unit='s')
@@ -39,7 +26,7 @@ def add_recordings_to_offdf(df, recs, starts, durations):
     return df
 
 
-def load_complete_exp_off(subject, exp, probes=['NNXr', 'NNXo'], sort_id=None, structure=None, which='ap', sensible_filters=True):
+def load_complete_exp_off(subject, exp, probes=['NNXr', 'NNXo'], sort_id=None, structure=None, which='ap', sensible_filters=True, relative=False, rel_method='mean'):
     if sort_id is None:
         sort_id = f'{exp}-{probes[0]}'
     
@@ -49,13 +36,19 @@ def load_complete_exp_off(subject, exp, probes=['NNXr', 'NNXo'], sort_id=None, s
     for probe in probes:
         off = core.get_offs(subject=subject, prb=probe, structure=structure, which=which, experiment=exp)
         off['probe'] = probe
-        off = assign_recordings_to_off_df(off, recs, durations)
-        off = assign_datetimes_to_off_df(off, recs, starts, durations)
+        sorting_start = pd.Timestamp(starts[0])
+        off = assign_datetimes_to_off_df(off, sorting_start)
+        off = assign_recordings_to_off_df(off, recs, starts, durations)
+        
         off_dfs_by_probe[probe] = off
     offdf = pd.concat(off_dfs_by_probe.values())
+    offdf.sort_values('start_datetime', inplace=True)
     if sensible_filters:
         offdf = offdf.loc[(offdf['median_duration']>.04) & (offdf['median_duration']<0.8)]
-    return offdf.sort_values('start_datetime', inplace=True)
+        offdf = offdf.loc[(offdf['duration']>.04) & (offdf['duration']<0.8)]
+    if relative:
+        offdf = make_odf_relative(offdf, method=rel_method)
+    return offdf
 
 def get_current_off_processing():
     cur_offs = pd.DataFrame(columns=['subject', 'exp', 'result_nnxo', 'result_nnxr'])
@@ -77,3 +70,35 @@ def get_current_off_processing():
     f, ax = plt.subplots(1, 1, figsize=(5, 10))
     sns.scatterplot(data=cur_offs, x='exp', y='subject', hue='result_nnxo', hue_order=['present', 'absent'], palette=['green', 'red'], s=80, ax=ax)
     return f, ax
+
+def make_odf_relative(odf, method='mean'):
+    if method == 'mean':
+        avgs = odf.groupby(['probe', 'descriptor']).mean().reset_index()
+    elif method == 'median':
+        avgs = odf.groupby(['probe', 'descriptor']).median().reset_index()
+    else:
+        raise ValueError('method must be mean or median')
+    avgs = avgs.loc[avgs['descriptor']=='Early_Baseline_NREM']
+    odf.loc[odf['probe']=='NNXo', 'median_duration'] = odf.prb('NNXo')['median_duration']/avgs.prb('NNXo')['median_duration'].values[0]
+    odf.loc[odf['probe']=='NNXo', 'duration'] = odf.prb('NNXo')['duration']/avgs.prb('NNXo')['duration'].values[0]
+    odf.loc[odf['probe']=='NNXr', 'median_duration'] = odf.prb('NNXr')['median_duration']/avgs.prb('NNXr')['median_duration'].values[0]
+    odf.loc[odf['probe']=='NNXr', 'duration'] = odf.prb('NNXr')['duration']/avgs.prb('NNXr')['duration'].values[0]
+    return odf
+
+def check_if_off_detection_is_done(subject, exp, probe, dates=['2024-07-29', '2024-07-30']):
+    data_folder = f'/Volumes/npx_nfs/nobak/offproj/{exp}/{subject}'
+    txt_files = []
+    if not os.path.exists(data_folder):
+        return []
+    for f in os.listdir(data_folder):
+        if f.endswith('.txt'):
+            if 'SUCCESS' in f:
+                if probe in f:
+                    txt_files.append(f)
+    processed_conditions = []
+    for f in txt_files:
+        cond = f.split('.')[2]
+        date = f.split('--')[1].split('.')[0]
+        if date in dates:
+            processed_conditions.append(cond)        
+    return processed_conditions

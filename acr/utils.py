@@ -3,12 +3,20 @@ import yaml
 import acr
 import tdt
 import numpy as np
+import os
+import matplotlib.pyplot as plt
 
 raw_data_root = "/Volumes/neuropixel_archive/Data/acr_archive/"
 materials_root = "/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/"
 opto_loc_root = "/Volumes/opto_loc/Data/"
 
+NNXR_GRAY = "#4b4e4d"
+NNXO_BLUE = "dodgerblue"
+SOM_BLUE = "#4508ff"
+BAND_ORDER = ['delta1', 'delta2', 'delta', 'theta', 'alpha', 'sigma', 'beta', 'low_gamma', 'high_gamma']
+
 swi_subs_exps = {
+    "ACR_14": ["swi"],
     "ACR_16": ["swi2"],
     "ACR_17": ["swi"],
     "ACR_18": ["swi", "swisin"],
@@ -24,8 +32,8 @@ swi_subs_exps = {
     "ACR_30": ["swi2"],
     "ACR_31": ["swisin2", "swi2"],
     "ACR_33": ["swisin", "swi"],
-    "ACR_34": ["swisin2"],
-    "ACR_35": ["swi"],
+    "ACR_34": ["swisin2", "swi"],
+    "ACR_35": ["swi", "swisin"],
 }
 
 sub_probe_locations = {
@@ -66,6 +74,7 @@ sub_exp_types = {
     "ACR_30": "som",
     "ACR_31": "acr",
     "ACR_33": "acr",
+    "ACR_34": "acr",
     "ACR_35": "som",
 }
 
@@ -158,3 +167,18 @@ def get_recording_end_time(subject, recording, store):
         open("/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/end_times.yaml", "r")
     )
     return end_info[subject][recording][store]['zero_period_start'][0]
+
+
+def _resample_numpy(signal, desired_length):
+    resampled_signal = np.interp(
+        np.linspace(0.0, 1.0, desired_length, endpoint=False),  # where to interpolate
+        np.linspace(0.0, 1.0, len(signal), endpoint=False),  # known positions
+        signal,  # known data points
+    )
+    return(resampled_signal)
+
+def save_sub_exp_fig(subject, exp, filename):
+    save_root = f'/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/plots_presentations_etc/PLOTS_MASTER/{subject}/{exp}'
+    if os.path.exists(save_root) == False:
+        os.mkdir(save_root)
+    plt.savefig(f'{save_root}/{filename}.svg', dpi=300, bbox_inches='tight')

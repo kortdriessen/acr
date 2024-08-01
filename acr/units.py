@@ -291,7 +291,7 @@ def get_time_info(subject, sort_id):
         times = [int(t.strip()) for t in times]
         recs = ss_narrowed.recordings.values[0].split(",")
         recs = [r.strip() for r in recs]
-    info = aip.load_subject_info(subject)
+    info = aip.subject_info_section(subject, 'rec_times')
     times_new = []
 
     # TODO fix this!!
@@ -303,9 +303,9 @@ def get_time_info(subject, sort_id):
         if t != 0:
             times_new.append(t)
         if t == 0:
-            duration = info["rec_times"][r][f"{probe}-duration"]
+            duration = info[r][f"{probe}-duration"]
             times_new.append(duration)
-        starts.append(np.datetime64(info["rec_times"][r]["start"]))
+        starts.append(np.datetime64(info[r]["start"]))
     return recs, starts, times_new
 
 

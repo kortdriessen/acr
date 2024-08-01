@@ -916,3 +916,52 @@ def get_sd_reb_start(subject, exp):
     sd_day = rec_times[sd_rec]['start'].split("T")[0]
     sd_start = pd.Timestamp(sd_day + "T09:00:00")
     return sd_start, reb_start
+
+
+def get_sd_exp_landmarks(subject, exp):
+    """
+    Gets Experiment Landmarks, relies on up to date and correct spikesorting spreadsheet!!
+    ---------------------------------------------------------------------------------------
+    - This function returns the start time of the SD, the start time of the stim, the end time of the stim, 
+    the start time of the rebound, and the start time of the full exp
+    
+    - Note that full_experiment_start is the start of the first recording in the recording list for the sort-id of the given experiment.
+    
+
+    Parameters
+    ----------
+    subject : str
+        subject name
+    exp : str
+        experiment name
+
+    Returns
+    -------
+    sd_start, stim_start, stim_end, rebound_start, full_exp_start : pd.Timestamp
+        experiment landmarks
+    """
+    exp_recs = acr.units.get_sorting_recs(subject, f'{exp}-NNXo')
+    h = acr.io.load_hypno_full_exp(subject, exp)
+    rec_times = acr.info_pipeline.subject_info_section(subject, 'rec_times')
+    full_exp_start = pd.Timestamp(rec_times[exp_recs[0]]['start'])
+    
+    # get experimental day start time (i.e. start time of SD):
+    exp_rec_start = rec_times[exp]['start']
+    exp_day = exp_rec_start.split('T')[0]
+    recordings_on_exp_day = [rec for rec in exp_recs if exp_day in rec_times[rec]['start']]
+    exp_recording_starts = [pd.Timestamp(rec_times[rec]['start']) for rec in recordings_on_exp_day]
+    sd_true_start = min(exp_recording_starts) 
+    
+    #load stim times
+    stim_start, stim_end = acr.stim.stim_bookends(subject, exp)
+    
+    #Get the rebound start time
+    candidate_hypno = h.loc[(h['end_time']>stim_end) & (h['state']=='NREM')]
+    if candidate_hypno['start_time'].values[0]<stim_end:
+        rebound_start = stim_end
+    elif candidate_hypno['start_time'].values[0]>stim_end:
+        rebound_start = candidate_hypno['start_time'].values[0]
+    else:
+        raise ValueError('No rebound start found, unsure what to do with this hypnogram')
+
+    return sd_true_start, stim_start, stim_end, rebound_start, full_exp_start

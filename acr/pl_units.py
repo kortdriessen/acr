@@ -415,7 +415,7 @@ def plot_fr_by_probe(fr_rel, hyp, ax=None, color=False):
     return ax
 
 
-def plot_fr_by_cluster(fr_rel, hyp):
+def plot_fr_by_cluster(fr_rel, hyp, stim_start=None, stim_end=None):
     for probe in fr_rel.prbs():
         color = "blue" if probe == "NNXo" else "black"
         for cluster_id in fr_rel.prb(probe).cid_un():
@@ -427,6 +427,9 @@ def plot_fr_by_cluster(fr_rel, hyp):
             kp.shade_hypno_for_me(hyp, ax)
             ax.set_title(f"{probe} | Cluster = {cluster_id}")
             kp.add_light_schedule(fr_rel.light_schedule(), ax=ax)
+            if stim_start != None and stim_end != None:
+                ax.axvline(stim_start, color="red", linestyle="--")
+                ax.axvline(stim_end, color="red", linestyle="--")
     return
 
 
