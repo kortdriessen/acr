@@ -431,5 +431,5 @@ if "PROCESS MUA!" in process_mua:
         acr.mua.preprocess_data_for_mua(subject, expmt, njobs=128, overwrite=False)
         st.write("Preprocessing Done!")
         st.write("Running MUA Detection...")
-        acr.mua.detect_all_subject_mua_spikes(subject, threshold=4, njobs=200, save=True, overwrite=False)
+        acr.mua.detect_all_subject_mua_spikes(subject, threshold=4, n_jobs=200, save=True, overwrite=False)
         st.write("MUA Detection Done!")
