@@ -169,16 +169,17 @@ def list_all_preprocessed_mua_data(subject):
             processed.append((sub, rec, probe))
     return processed
 
-def load_detected_mua_spikes(subject, rec, probe):
+def load_detected_mua_spikes(subject, rec, probe, dt=True):
     path = f'{raw_data_root}mua_data/{subject}/si_peak_dfs/PEAKS--{subject}--{rec}--{probe}.parquet' 
     df = pl.read_parquet(path)
-    raw_times = df['time'].to_numpy()
-    rec_times = subject_info_section(subject, 'rec_times')
-    start_dt = pd.Timestamp(rec_times[rec]['start'])
-    times_td = pd.to_timedelta(raw_times, unit='s')
-    times_in_dt = start_dt + times_td
-    df = df.with_columns(pl.Series('datetime', times_in_dt))
     df = df.with_columns(channel=pl.col('channel') + 1)
+    if dt ==True:
+        raw_times = df['time'].to_numpy()
+        rec_times = subject_info_section(subject, 'rec_times')
+        start_dt = pd.Timestamp(rec_times[rec]['start'])
+        times_td = pd.to_timedelta(raw_times, unit='s')
+        times_in_dt = start_dt + times_td
+        df = df.with_columns(pl.Series('datetime', times_in_dt))
     return df
 
 def load_mua_full_exp(subject, exp, probes=['NNXo', 'NNXr']):

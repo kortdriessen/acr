@@ -421,3 +421,15 @@ if st.button("Process Unit Dataframes"):
     # THen process the unit dataframes
     st.write("Processing Unit Dataframes")
     acr.units.save_all_spike_dfs(subject, drop_noise=True, stim=False)
+
+st.markdown("# Process MUA")
+process_mua = st.multiselect('Process MUA?', ["PROCESS MUA!", "NO MUA :("])
+if "PROCESS MUA!" in process_mua:
+    expmt = st.text_input("Experiment", "")
+    if st.button("Process!"):
+        st.write("Preprocessing Data for MUA...")
+        acr.mua.preprocess_data_for_mua(subject, expmt, njobs=128, overwrite=False)
+        st.write("Preprocessing Done!")
+        st.write("Running MUA Detection...")
+        acr.mua.detect_all_subject_mua_spikes(subject, threshold=4, njobs=200, save=True, overwrite=False)
+        st.write("MUA Detection Done!")
