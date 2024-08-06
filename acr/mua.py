@@ -12,7 +12,7 @@ import spikeinterface.preprocessing as sp
 import spikeinterface.core.recording_tools as rt
 import tdt
 import acr
-
+import polars as pl
 
 def v_to_uv(data, gain=1e6):
     """Converts data from volts to microvolts.
@@ -32,10 +32,11 @@ def check_for_preprocessed_mua_data(subject, recording, probe):
     save_folder = f'{raw_data_root}mua_data/{subject}'
     save_path = f'{save_folder}/MUA--{subject}--{recording}--{probe}.zarr'
     if os.path.exists(save_path):
-        return True
+        if os.path.exists(f'{save_path}/properties'):
+            if os.path.exists(f'{save_path}/properties/noise_level_mad_scaled'):
+                return True
     else:
         return False
-
 
 def prepro_np_array_via_si(np_array, fs, chans_to_interp=None):
     nchans = np_array.shape[0]
@@ -63,14 +64,14 @@ def prepro_np_array_via_si(np_array, fs, chans_to_interp=None):
     #TODO: importantly, add bad channel interpolation!! Should probably go here! Or could possibly be done in a separate function.
     return si_filt_cmr_with_probe 
 
-def save_preprocessed_mua_data(data, subject, recording, probe, njobs=224, chunk_duration='100s', progress_bar=True, overwrite=False):
+def save_preprocessed_mua_data(data, subject, recording, probe, njobs=16, chunk_duration='100s', progress_bar=True, overwrite=False):
     subject_dir = f'/Volumes/neuropixel_archive/Data/acr_archive/mua_data/{subject}'
     if os.path.exists == False:
         os.mkdir(subject_dir)
     save_path = f'{subject_dir}/MUA--{subject}--{recording}--{probe}.zarr'
     data.save(folder=save_path, overwrite=overwrite, format="zarr", n_jobs=njobs, chunk_duration=chunk_duration, progress_bar=progress_bar)
 
-def preprocess_data_for_mua(subject, exp_sort_id, probes=['NNXo', 'NNXr'], chans_to_interp=None, overwrite=False):
+def preprocess_data_for_mua(subject, exp_sort_id, probes=['NNXo', 'NNXr'], chans_to_interp=None, overwrite=False, njobs=16):
     for probe in probes:
         sort_id = f'{exp_sort_id}-{probe}'
         recs, starts, durations = acr.units.get_time_info(subject, sort_id)
@@ -90,7 +91,7 @@ def preprocess_data_for_mua(subject, exp_sort_id, probes=['NNXo', 'NNXr'], chans
             data = v_to_uv(data)
             fs = dat.streams[probe].fs
             preprocessed_data = prepro_np_array_via_si(data, fs, chans_to_interp=chans_to_interp)
-            save_preprocessed_mua_data(preprocessed_data, subject, rec, probe, overwrite=overwrite)
+            save_preprocessed_mua_data(preprocessed_data, subject, rec, probe, overwrite=overwrite, njobs=njobs)
     return
 
 def load_processed_mua_signal(subject, recording, probe, version='xr'):
@@ -116,6 +117,10 @@ def detect_mua_spikes_si(subject, recording, probe, save=True, chunk_duration='1
     if raw_mua_exists == False:
         print(f'Preprocessed data does not exist for {subject}--{recording}--{probe}, run preprocess_data_for_mua first')
         return None
+    if (overwrite==False) and (save==True):
+        if check_for_mua_spikes_df(subject, recording, probe):
+            print(f'Peaks already detected for {subject}--{recording}--{probe}, set overwrite=True to overwrite')
+            return None
     rec = load_processed_mua_signal(subject, recording, probe, version='si')
     job_kwargs = dict(chunk_duration=chunk_duration, n_jobs=n_jobs, progress_bar=progress_bar)
     peaks = detect_peaks(rec, method='by_channel', detect_threshold=threshold, peak_sign='neg', **job_kwargs)
@@ -127,13 +132,7 @@ def detect_mua_spikes_si(subject, recording, probe, save=True, chunk_duration='1
     peaks_df['subject'] = subject
     peaks_df['recording'] = recording
     peaks_df['probe'] = probe
-    if save:
-        if overwrite==False:
-            if check_for_mua_spikes_df(subject, recording, probe):
-                print(f'Peaks already detected for {subject}--{recording}--{probe}, set overwrite=True to overwrite')
-                return None
-            else:
-                pass
+    if save==True:
         save_folder = f'{raw_data_root}mua_data/{subject}/si_peak_dfs'
         save_path = f'{save_folder}/PEAKS--{subject}--{recording}--{probe}.parquet'
         if os.path.exists(save_folder) == False:
@@ -170,22 +169,24 @@ def list_all_preprocessed_mua_data(subject):
             processed.append((sub, rec, probe))
     return processed
 
-def load_detected_mua_spikes(subject, rec, probe, dt=True, type='si'):
-    if type == 'si':
-        load_folder = f'{raw_data_root}mua_data/{subject}/si_peak_dfs'
-    else:
-        raise NotImplementedError
-    load_path = f'{load_folder}/PEAKS--{subject}--{rec}--{probe}.parquet'
-    peaks_df = pd.read_parquet(load_path)
-    if 0 in peaks_df.channel.unique():
-        peaks_df['channel'] = peaks_df['channel'] + 1
-    if dt:
-        raw_times = peaks_df['time'] 
-        rec_times = subject_info_section(subject, 'rec_times')
-        start_dt = pd.Timestamp(rec_times[rec]['start'])
-        times_td = pd.to_timedelta(raw_times, unit='s')
-        times_in_dt = start_dt + times_td
-        peaks_df['datetime'] = times_in_dt
-        return peaks_df
-    else:
-        return peaks_df
+def load_detected_mua_spikes(subject, rec, probe):
+    path = f'{raw_data_root}mua_data/{subject}/si_peak_dfs/PEAKS--{subject}--{rec}--{probe}.parquet' 
+    df = pl.read_parquet(path)
+    raw_times = df['time'].to_numpy()
+    rec_times = subject_info_section(subject, 'rec_times')
+    start_dt = pd.Timestamp(rec_times[rec]['start'])
+    times_td = pd.to_timedelta(raw_times, unit='s')
+    times_in_dt = start_dt + times_td
+    df = df.with_columns(pl.Series('datetime', times_in_dt))
+    df = df.with_columns(channel=pl.col('channel') + 1)
+    return df
+
+def load_mua_full_exp(subject, exp, probes=['NNXo', 'NNXr']):
+    all_dfs = []
+    for probe in probes:
+        sort_id = f'{exp}-{probe}'
+        recs, starts, durations = acr.units.get_time_info(subject, sort_id)
+        for rec, dur in zip(recs, durations):
+            peaks = load_detected_mua_spikes(subject, rec, probe)
+            all_dfs.append(peaks)
+    return pl.concat(all_dfs)

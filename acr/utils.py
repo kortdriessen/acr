@@ -177,8 +177,37 @@ def _resample_numpy(signal, desired_length):
     )
     return(resampled_signal)
 
-def save_sub_exp_fig(subject, exp, filename):
-    save_root = f'/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/plots_presentations_etc/PLOTS_MASTER/{subject}/{exp}'
-    if os.path.exists(save_root) == False:
-        os.mkdir(save_root)
-    plt.savefig(f'{save_root}/{filename}.svg', dpi=300, bbox_inches='tight')
+def save_single_sub_exp_fig(subject, exp, filename):
+    sub_root = f'/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/plots_presentations_etc/PLOTS_MASTER/single_subject_plots/{subject}'
+    exp_root = f'{sub_root}/{exp}'
+    if os.path.exists(sub_root) == False:
+        os.mkdir(sub_root)
+    if os.path.exists(exp_root) == False:
+        os.mkdir(exp_root)
+    plt.savefig(f'{exp_root}/{filename}.svg', dpi=300, bbox_inches='tight')
+    plt.savefig(f'{exp_root}/{filename}.png', dpi=300, bbox_inches='tight')
+
+def add_time_quartiles_to_rebound_df(rebdf):
+    rebdf['time_quartile'] = pd.qcut(rebdf['datetime'], 4, labels=['Q1', 'Q2', 'Q3', 'Q4'])
+    return rebdf
+
+def normalize_bp_df_to_contra(df):
+    """Takes a rebound df. Gets the average bp value for each band on each channel of NNXr. Then divides all the other bandpower values for each channel and band by the average NNXr value for that channel and band. 
+    
+    For whatever you want to look at, essentially sets NNXr to 1.
+
+    Parameters
+    ----------
+    df : pd.Dataframe
+        rebound dataframe.
+    """
+    df = df.sort_values('channel')
+    band_averages = {}
+    for band in df['Band'].unique():
+        band_averages[band] = df.loc[df['Band']==band].prb('NNXr').groupby('channel')['Bandpower'].mean().to_frame().reset_index().sort_values('channel')
+    for band in df['Band'].unique():
+        bdf = band_averages[band]
+        for channel in df['channel'].unique():
+            norm_vals = df.loc[(df['Band']==band) & (df['channel']==channel)]['Bandpower'] / bdf.loc[bdf['channel']==channel]['Bandpower'].values[0]
+            df.loc[((df['Band']==band) & (df['channel']==channel)), 'Bandpower'] = norm_vals
+    return df

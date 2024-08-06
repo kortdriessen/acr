@@ -11,6 +11,7 @@ import kdephys.plot as kp
 
 import acr
 import acr.info_pipeline as aip
+from kdephys.hypno.ecephys_hypnogram import trim_hypnogram
 
 
 def gen_config(
@@ -415,3 +416,53 @@ def standard_hypno_corrections(hyp):
     hyp = remove_unsure_bouts(hyp)
     hyp = remove_duplicate_bouts(hyp)
     return hyp
+
+def get_cumulative_rebound_hypno(hypno, reb_start, cum_dur='3600s', states=['NREM']):
+    reb_hypno = trim_hypnogram(hypno._df, reb_start, reb_start+pd.Timedelta('6h'), ret_hyp=True)
+    cum_reb_hypno = reb_hypno.keep_states(states).keep_first(cum_dur)
+    return cum_reb_hypno
+
+def get_circadian_match_of_rebound(reb_hypno):
+    t1 = reb_hypno['start_time'].min()
+    t2 = reb_hypno['end_time'].max()
+    blt1 = t1 - pd.Timedelta('24h')
+    blt2 = t2 - pd.Timedelta('24h')
+    return blt1, blt2
+
+def get_previous_day_times(ref_time, t1='09:00:00', t2='21:00:00'):
+    """
+    takes a ref_time, and gives you the times t1 and t2 of the day previous to ref_time
+    """
+    
+    prev_day_ref_time = ref_time - pd.Timedelta('24h')
+    prev_day_string = prev_day_ref_time.strftime('%Y-%m-%d %H:%M:%S').split(' ')[0]
+    t1 = pd.to_datetime(f'{prev_day_string} {t1}')
+    t2 = pd.to_datetime(f'{prev_day_string} {t2}')
+    return t1, t2
+
+
+def get_bl_times(reb_hypno, mode='full'):
+    """Get the times for the day before the first time of the rebound hypnogram, according to mode.
+
+    Parameters
+    ----------
+    reb_hypno : hypno
+        The rebound hypnogram.
+    mode : str, optional
+        default = 'full'
+        - full: return the full light period hypnogram of the previous day (9am-9pm)
+        - circ: return the circadian-matched hypnogram of the previous day
+    """
+    reb_start = reb_hypno.start_time.min()
+    prev_day = (reb_start - pd.Timedelta('24h')).strftime('%Y-%m-%d').split(' ')[0]
+    if mode == 'full':
+        blt1 = pd.Timestamp(f'{prev_day} 09:00:00')
+        blt2 = pd.Timestamp(f'{prev_day} 21:00:00')
+    elif mode == 'circ':
+        t1 = reb_hypno['start_time'].min()
+        t2 = reb_hypno['end_time'].max()
+        blt1 = t1 - pd.Timedelta('24h')
+        blt2 = t2 - pd.Timedelta('24h')
+    else:
+        raise ValueError('mode must be either "full" or "circ"')
+    return blt1, blt2

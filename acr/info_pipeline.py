@@ -918,7 +918,7 @@ def get_sd_reb_start(subject, exp):
     return sd_start, reb_start
 
 
-def get_sd_exp_landmarks(subject, exp):
+def get_sd_exp_landmarks(subject, exp, update=True):
     """
     Gets Experiment Landmarks, relies on up to date and correct spikesorting spreadsheet!!
     ---------------------------------------------------------------------------------------
@@ -941,7 +941,7 @@ def get_sd_exp_landmarks(subject, exp):
         experiment landmarks
     """
     exp_recs = acr.units.get_sorting_recs(subject, f'{exp}-NNXo')
-    h = acr.io.load_hypno_full_exp(subject, exp)
+    h = acr.io.load_hypno_full_exp(subject, exp, update=update)
     rec_times = acr.info_pipeline.subject_info_section(subject, 'rec_times')
     full_exp_start = pd.Timestamp(rec_times[exp_recs[0]]['start'])
     

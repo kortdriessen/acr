@@ -210,15 +210,15 @@ def load_hypno_full_exp(subject, exp, corrections=True, float=False, update=True
     if float: 
         for rec in h.keys():
             h[rec] = h[rec].as_float()
-        hypno_final =  FloatHypnogram(pd.concat(h.values()))
+        hypno_final =  pd.concat(h.values())
         if corrections == True:
             hypno_final = hu.standard_hypno_corrections(hypno_final.reset_index(drop=True))
-        return hypno_final
+        return FloatHypnogram(hypno_final)
     else:
-        hypno_final =  DatetimeHypnogram(pd.concat(h.values()))
+        hypno_final =  pd.concat(h.values())
         if corrections == True:
             hypno_final = hu.standard_hypno_corrections(hypno_final.reset_index(drop=True))
-        return hypno_final
+        return DatetimeHypnogram(hypno_final)
 
 
 
@@ -390,6 +390,42 @@ def load_concat_raw_data(subject, recordings, stores, select=None):
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------
 from acr.utils import swi_subs_exps, sub_probe_locations, sub_exp_types
 
+def get_channels_to_exclude(subject, experiment):
+    ex_path = f'{materials_root}bad_channels.xlsx'
+    ex = pd.read_excel(ex_path)
+    deads = ex.loc[(ex['subject']==subject) & (ex['exp']==experiment)]['dead_channels'].values
+    all_exs = ex.loc[(ex['subject']==subject) & (ex['exp']==experiment)]['all_exclude'].values
+    total_exclusion = []
+    for dead in deads:
+        if type(dead) != str:
+            continue
+        elif dead == '-':
+            continue
+        else:
+            if ',' in dead:
+                dead = dead.split(',')
+                for d in dead:
+                    total_exclusion.append(int(d))
+            else:
+                total_exclusion.append(int(dead))
+    for ex in all_exs:
+        if type(ex) != str:
+            continue
+        elif ex == '-':
+            continue
+        else:
+            if ',' in ex:
+                ex = ex.split(',')
+                for e in ex:
+                    total_exclusion.append(int(e))
+            else:
+                total_exclusion.append(int(ex))
+    return np.unique(total_exclusion)
+
+def exclude_bad_channels_from_df(df, subject, experiment):
+    ex = get_channels_to_exclude(subject, experiment)
+    return df[~df['channel'].isin(ex)]
+
 def read_full_df(folder='rebound_data_1h', subs=None, method='pandas'):
     if subs is None:
         subs = swi_subs_exps.keys()
@@ -414,9 +450,11 @@ def read_full_df(folder='rebound_data_1h', subs=None, method='pandas'):
             reb_df = reb_df.drop(columns=['Unnamed: 0'])
     return reb_df
 
-def read_subject_rebdf(sub, exp, folder='rebound_data_1h'):
-    data_path = f'/home/kdriessen/gh_master/acr/pub/data/{folder}/{sub}--{exp}--reb.parquet'
+def read_subject_rebdf(sub, exp, folder='rebound_data_1h', exclude_bad_chans=True):
+    data_path = f'/home/kdriessen/gh_master/acr/pub/data/{folder}/{sub}--{exp}.parquet'
     df = pd.read_parquet(data_path)
     if 'Unnamed: 0' in df.columns:
         df = df.drop(columns=['Unnamed: 0'])
+    if exclude_bad_chans:
+        df = exclude_bad_channels_from_df(df, sub, exp)
     return df
