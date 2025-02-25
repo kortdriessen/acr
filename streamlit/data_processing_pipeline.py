@@ -3,7 +3,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 from kdephys.plot.main import *
-from kdephys.plot.units import *
+from kdephys.plot.utils import *
 import yaml
 import acr
 import tdt
@@ -425,11 +425,10 @@ if st.button("Process Unit Dataframes"):
 st.markdown("# Process MUA")
 process_mua = st.multiselect('Process MUA?', ["PROCESS MUA!", "NO MUA :("])
 if "PROCESS MUA!" in process_mua:
-    expmt = st.text_input("Experiment", "")
-    if st.button("Process!"):
+    possible_exps = acr.info_pipeline.get_subject_exps(subject)
+    possible_exps = list(possible_exps.keys())
+    exp_list = st.multiselect("Experiments to process MUA for", possible_exps, None)
+    if st.button("Run Full Mua Pipeline!"):
         st.write("Preprocessing Data for MUA...")
-        acr.mua.preprocess_data_for_mua(subject, expmt, njobs=128, overwrite=False)
-        st.write("Preprocessing Done!")
-        st.write("Running MUA Detection...")
-        acr.mua.detect_all_subject_mua_spikes(subject, threshold=4, n_jobs=200, save=True, overwrite=False)
+        acr.mua.full_mua_pipeline_for_subject(subject, list_of_exps=exp_list, overwrite=False, df_version='concat', detect_jobs=56)
         st.write("MUA Detection Done!")

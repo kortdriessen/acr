@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import numpy as np
 from kdephys.plot.main import *
-from kdephys.plot.units import *
+from kdephys.plot.utils import *
 import acr
 import tdt
 
