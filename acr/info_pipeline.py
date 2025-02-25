@@ -25,7 +25,7 @@ def load_rec_quality():
 def subject_params(subject):
     path = f"{materials_root}{subject}/subject_params.py"
     sub_params = SourceFileLoader("sub_params", path).load_module()
-    from sub_params import params
+    from sub_params import params # type: ignore
 
     return params
 
