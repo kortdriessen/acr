@@ -1,6 +1,7 @@
 from . import (
     io,
     plots,
+    spoff,
     utils,
     info_pipeline,
     units,
@@ -8,8 +9,11 @@ from . import (
     stim,
     duplication_functions,
     pl_units,
-    onoff,
+    onoffmua,
     off_data_pipeline,
-    spoff,
     mua,
+    sync,
+    fp,
+    dev,
+    data_agg,
 )

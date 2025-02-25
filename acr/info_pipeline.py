@@ -97,6 +97,15 @@ def load_dup_info(subject, rec, store):
     return benedict(dup_info[subject][rec][store])
 
 
+def correct_subject_naming_problem(true_subject, replace_string, recording):
+    dir = acr.io.acr_path(true_subject, recording)
+    for f in os.listdir(dir):
+        if replace_string in f:
+            new_f = f.replace(replace_string, true_subject)
+            os.rename(os.path.join(dir, f), os.path.join(dir, new_f))
+            print(f'f: {f}, new: {new_f}')
+    return
+
 def get_all_tank_keys(root, sub):
     tanks = []
     for f in os.listdir(root):
@@ -693,7 +702,7 @@ def stim_info_to_yaml(subject, exps, wavt_thresh=1.7e6):
                 stim_info[exp][store] = {}
                 stim_info[exp][store]["onsets"] = on_str
                 stim_info[exp][store]["offsets"] = off_str
-            elif store in ["Bttn", "Pu1_", "Pu2_", "Pu3_"]:
+            elif store in ["Bttn", "Pu1_", "Pu2_", "Pu3_", "PC5_"]:
                 on, off = epoc_extractor(subject, exp, store)
                 on_list = list(on)
                 on_str = [str(x) for x in on_list]
@@ -791,6 +800,17 @@ def get_impt_recs(subject):
             recs.append(rec)
     return recs
 
+def get_subject_exps(subject):
+    """returns a dictionary with experiments as the keys and their recordings as the values"""
+    important_recs = yaml.safe_load(open(f"{materials_root}important_recs.yaml", "r"))
+    impt_recs = important_recs[subject]
+    exps = {}
+    for exp in impt_recs:
+        if exp == "stores":
+            continue
+        exps[exp] = impt_recs[exp]
+    return exps
+
 
 def get_exp_recs(subject, exp):
     """returns a list of all recordings (under a single experiment) from the important_recs.yaml file"""
@@ -826,6 +846,13 @@ def get_exp_from_rec(subject, rec):
             return exp
     return None
 
+def _get_histo_path(subject, store):
+    kd_labels = f'{materials_root}{subject}/histology/KD_probe_localizations/{store}.pkl'
+    if os.path.exists(kd_labels):
+        return kd_labels
+    else:
+        return f'{materials_root}{subject}/histology/herbs/{store}.pkl'
+
 def get_channel_map(subject):
     si = acr.info_pipeline.load_subject_info(subject)
     if 'NNXr' in si['raw_stores'] and 'NNXo' in si['raw_stores']:
@@ -838,7 +865,7 @@ def get_channel_map(subject):
         raise Exception('No raw stores found')
     channel_map = {}
     for store in stores:
-        histo_path = f'{materials_root}{subject}/histology/herbs/{store}.pkl'
+        histo_path = _get_histo_path(subject, store)
         if not os.path.exists(histo_path):
             return channel_map_null(stores=stores, nchans=16)
         probe = pickle.load(open(histo_path, 'rb'))
@@ -852,8 +879,12 @@ def get_channel_map(subject):
         layers = []
         regions = []
         for rn in region_names:
-            regions.append(rn.split(' layer ')[0])
-            layers.append(rn.split(' layer ')[1])
+            if 'white matter' in rn.lower():
+                regions.append('WM')
+                layers.append('7')
+            else:
+                regions.append(rn.split(' layer ')[0])
+                layers.append(rn.split(' layer ')[1])
         code_map = {}
         for i, code in enumerate(region_codes):
             code_map[str(code)] = {}
@@ -873,12 +904,13 @@ def channel_map_null(stores=['NNXo', 'NNXr'], nchans=16):
             channel_map[probe][str(chan)] = {'region': 'unknown', 'layer': 'unknown'}
     return channel_map
 
-def add_channel_map_to_subject_info(subject):
+def add_channel_map_to_subject_info(subject, redo=False):
     path = f"{materials_root}{subject}/subject_info.yml"
     with open(path) as f:
         si = yaml.load(f, Loader=yaml.FullLoader)
     if 'channel_map' in si:
-        return si
+        if redo == False:
+            return si
     si['channel_map'] = get_channel_map(subject) 
     acr.info_pipeline.save_subject_info(subject, si)
     return si
@@ -917,6 +949,25 @@ def get_sd_reb_start(subject, exp):
     sd_start = pd.Timestamp(sd_day + "T09:00:00")
     return sd_start, reb_start
 
+def _get_bl_start(subject, exp):
+    rec_times = acr.info_pipeline.subject_info_section(subject, 'rec_times')
+    bl_start_actual = rec_times[f'{exp}-bl']["start"]
+    bl_day = bl_start_actual.split("T")[0]
+    bl_start = pd.Timestamp(bl_day + "T09:00:00")
+    return bl_start
+
+def get_bl_bookends(subject, exp):
+    bl_start = _get_bl_start(subject, exp)
+    bl_end = bl_start + pd.Timedelta('12h')
+    return bl_start, bl_end
+
+def get_exp_bookends(subject, exp):
+    rec_times = acr.info_pipeline.subject_info_section(subject, 'rec_times')
+    exp_rec_start = rec_times[exp]['start']
+    exp_day = exp_rec_start.split('T')[0]
+    exp_start = pd.Timestamp(exp_day + "T09:00:00")
+    exp_end = exp_start + pd.Timedelta('12h')
+    return exp_start, exp_end
 
 def get_sd_exp_landmarks(subject, exp, update=True):
     """
@@ -965,3 +1016,41 @@ def get_sd_exp_landmarks(subject, exp, update=True):
         raise ValueError('No rebound start found, unsure what to do with this hypnogram')
 
     return sd_true_start, stim_start, stim_end, rebound_start, full_exp_start
+
+from acr.utils import materials_root
+def _read_interpol():
+    path = f'{materials_root}interpol.yaml'
+    with open(path, 'r') as file:
+        interpol = yaml.safe_load(file)
+    return interpol
+
+def get_interpol_info(subject, probe):
+    i = _read_interpol()
+    if probe not in i[subject].keys():
+        return []
+    else:
+        return i[subject][probe]
+
+def write_interpol_done(subject, rec, probe, chans=None, version=None):
+    assert version in ['ap', 'lfp'], 'version must be ap or lfp'
+    exp = acr.info_pipeline.get_exp_from_rec(subject, rec)
+    if chans is None:
+        chans = get_interpol_info(subject, probe)
+    path = f'{materials_root}interpol/{subject}'
+    if not os.path.exists(path):
+        os.makedirs(path)
+    path = f'{path}/{rec}--{probe}--{version}.txt'
+    #write the channels to the file
+    with open(path, 'w') as file:
+        file.write(str(chans))
+    return
+
+def read_interpol_done(subject, rec, probe, version=None):
+    assert version in ['ap', 'lfp'], 'version must be ap or lfp'
+    path = f'{materials_root}interpol/{subject}/{rec}--{probe}--{version}.txt'
+    if not os.path.exists(path):
+        return None
+    with open(path, 'r') as file:
+        content = file.read().strip('[]').replace(' ', '')
+        chans = [int(chan) for chan in content.split(',') if chan]
+    return chans

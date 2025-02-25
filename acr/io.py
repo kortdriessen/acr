@@ -15,6 +15,8 @@ import os
 import xarray as xr
 import acr
 import polars as pl
+import spikeinterface as si
+from kdephys.units.utils import set_probe_and_channel_locations_on_si_rec
 
 from acr.utils import materials_root, opto_loc_root, raw_data_root
 bands = ku.spectral.bands
@@ -33,10 +35,8 @@ class data_dict(dict):
             nd[key] = getattr(self[key], method)(args)
         return data_dict(nd)
 
-
 def acr_path(sub, x):
     return f"{raw_data_root}{sub}/{sub}-{x}"
-
 
 def get_acr_paths(sub, xl):
     paths = {}
@@ -45,60 +45,139 @@ def get_acr_paths(sub, xl):
         paths[x] = path
     return paths
 
-def get_bad_channels(subject, exp):
+def get_channels_to_exclude(subject, experiment, which='both', probe=None):
+    """Takes a subject and experiment, finds which channels are no good based on the bad_channels.xlsx file.
+
+    Parameters
+    ----------
+    subject : _type_
+        _description_
+    experiment : _type_
+        _description_
+    which:
+        - dead = only exclude dead channels
+        - all_ex = only exclude 'all_exclude' channels (which are excluded from all states, but maybe only for bandpower, etc.)
+        - both = exclude both dead and all_exclude channels
+    probe : str
+        if this is passed, the channels to exclude will be restricted to the given probe, and only channels on that probe will be excluded.
+    """
     ex_path = f'{materials_root}bad_channels.xlsx'
-    ex= pd.read_excel(ex_path)
-    ex.dropna(inplace=True)
-    bad_chans = {}
-    if subject in ex['subject'].unique():
-        if exp in ex.sbj(subject)['exp'].unique():
-            stores = ex.sbj(subject).expmt(exp)['store'].unique()
-            for store in stores:
-                dead_chans = ex.sbj(subject).expmt(exp).prb(store)['dead_channels'].values[0]
-                if dead_chans == '-':
-                    continue
-                elif type(dead_chans) == str:
-                    dead_chans = dead_chans.split(',')
-                    dead_chans = [int(chan) for chan in dead_chans]
-                    bad_chans[store] = dead_chans
-                elif type(dead_chans) == int:
-                    bad_chans[store] = [dead_chans]
+    ex = pd.read_excel(ex_path)
+    if probe == None:
+        deads = ex.loc[(ex['subject']==subject) & (ex['exp']==experiment)]['dead_channels'].values
+        all_exs = ex.loc[(ex['subject']==subject) & (ex['exp']==experiment)]['all_exclude'].values
+    elif 'NNX' in probe:
+        deads = ex.loc[(ex['subject']==subject) & (ex['exp']==experiment) & (ex['store']==probe)]['dead_channels'].values
+        all_exs = ex.loc[(ex['subject']==subject) & (ex['exp']==experiment) & (ex['store']==probe)]['all_exclude'].values
+    else:
+        raise ValueError(f'Probe: {probe} is not recognized')
+    total_exclusion = []
+    if which == 'dead' or which == 'both':
+        for dead in deads:
+            if type(dead) != str:
+                if type(dead) == int:
+                    total_exclusion.append(int(dead))
                 else:
                     continue
-        return bad_chans
-    return []
-
-def nuke_bad_chans(ds, subject, exp):
-    bad_chans = get_bad_channels(subject, exp)
-    if bad_chans == []:
-        return ds
-    stores_with_bad_chans = bad_chans.keys()
-    if 'store' not in ds.dims:
-        stores = [str(ds.store.values)]
-        assert len(stores) == 1
-    elif 'store' in ds.dims:
-        stores = ds.store.values
-    else:
-        print('No store dimension or coordinate in dataset')
-        return ds
-    for store in stores:
-        if store in stores_with_bad_chans:
-            for chan in bad_chans[store]:
-                if chan not in ds.channel.values:
-                    print(f'Channel {chan} not in {store} for {subject} {exp}')
+            elif dead == '-':
+                continue
+            else:
+                if ',' in dead:
+                    dead = dead.split(',')
+                    for d in dead:
+                        total_exclusion.append(int(d))
+                else:
+                    total_exclusion.append(int(dead))
+    if which == 'all_ex' or which == 'both':
+        for ex in all_exs:
+            if type(ex) != str:
+                if type(ex) == int:
+                    total_exclusion.append(int(ex))
+                else:
                     continue
-                if type(ds) == xr.Dataset:
-                    for var_name in ds.data_vars:
-                        if 'store' in ds.dims:
-                            ds[var_name].loc[{'channel': chan, 'store': store}] = np.nan
-                        elif 'store' not in ds.dims:
-                            ds[var_name].loc[{'channel': chan}] = np.nan
-                elif type(ds) == xr.DataArray:
+            elif ex == '-':
+                continue
+            else:
+                if ',' in ex:
+                    ex = ex.split(',')
+                    for e in ex:
+                        total_exclusion.append(int(e))
+                else:
+                    total_exclusion.append(int(ex))
+    return np.unique(total_exclusion)
+
+def nuke_bad_chans_from_df(subject, experiment, df, which='dead', probe=None):
+    """Takes a subject and experiment, finds which channels are no good based on the bad_channels.xlsx file, then completely removes them from any dataframe.
+
+    Parameters
+    ----------
+    subject : _type_
+        _description_
+    experiment : _type_
+        _description_
+    df : _type_
+        _description_
+    which:
+        - dead = only exclude dead channels
+        - all_ex = only exclude 'all_exclude' channels (which are excluded from all states, but maybe only for bandpower, etc.)
+        - both = exclude both dead and all_exclude channels
+    probe : str
+        if this is passed, the channels to exclude will be restricted to the given probe, and only channels on that probe will be excluded.
+    """
+    chans_to_nuke = get_channels_to_exclude(subject, experiment, which=which, probe=probe)
+    if len(chans_to_nuke) == 0:
+        return df
+
+    store_col = 'store' if 'store' in df.columns else 'probe'
+    if type(df) == pd.DataFrame:
+        if type(probe) == str:
+            if 'NNX' in probe:
+                return df[~((df[store_col] == probe) & (df['channel'].isin(chans_to_nuke)))]
+        elif probe==None:
+            return df[~df['channel'].isin(chans_to_nuke)]
+        else:
+            raise ValueError(f'Probe: {probe} not recognized')
+    elif type(df) == pl.DataFrame:
+        if type(probe) == str:
+            if 'NNX' in probe:
+                return df.filter(~((pl.col(store_col) == probe) & (pl.col('channel').is_in(chans_to_nuke))))
+        elif probe==None:
+            return df.filter(~(pl.col('channel').is_in(chans_to_nuke)))
+        else:
+            raise ValueError(f'Probe: {probe} not recognized')
+
+
+def nuke_bad_chans_from_xrds(ds, subject, exp, which='both', probe=None):
+    bad_chans = get_channels_to_exclude(subject, exp, which=which, probe=probe)
+    if len(bad_chans) == 0:
+        return ds
+    if type(probe) == str:
+        assert 'NNX' in probe, 'Probe must be a valid probe name'
+        if type(ds) == xr.Dataset:
+            for var_name in ds.data_vars:
+                for channel in bad_chans['NNX']:
                     if 'store' in ds.dims:
-                        ds.loc[{'channel': chan, 'store': store}] = np.nan
+                        ds[var_name].loc[{'channel': channel, 'store': probe}] = np.nan
                     elif 'store' not in ds.dims:
-                        ds.loc[{'channel': chan}] = np.nan
+                        ds[var_name].loc[{'channel': channel}] = np.nan
+        elif type(ds) == xr.DataArray:
+            for channel in bad_chans['NNX']:
+                if 'store' in ds.dims:
+                    ds.loc[{'channel': channel, 'store': probe}] = np.nan
+                elif 'store' not in ds.dims:
+                    ds.loc[{'channel': channel}] = np.nan
+    elif probe == None:
+        if type(ds) == xr.Dataset:
+            for var_name in ds.data_vars:
+                for channel in bad_chans['NNX']:
+                        ds[var_name].loc[{'channel': channel}] = np.nan
+        elif type(ds) == xr.DataArray:
+            for channel in bad_chans['NNX']:
+                ds.loc[{'channel': channel}] = np.nan
+    else:
+        raise ValueError('Probe not recognized')
     return ds
+
 
 # ------------------------------------------ Hypnogram io -------------------------------------#
 def get_chunk_num(name):
@@ -189,6 +268,13 @@ def load_hypno(subject, recording, corrections=False, update=True, float=False):
     else:
         return hypno
 
+def get_float_hypno_dict(subject, exp):
+    recs = acr.info_pipeline.get_exp_recs(subject, exp)
+    hd = {}
+    for rec in recs:
+        hd[rec] = load_hypno(subject, rec, corrections=True, update=False, float=True)
+    return hd
+
 def load_hypno_full_exp(subject, exp, corrections=True, float=False, update=True):
     """loads every hypnogram across all recordings of an experiment, and concatenates them
 
@@ -268,7 +354,23 @@ def calc_and_save_bandpower_sets(subject, stores=['NNXo', 'NNXr'], recordings=No
             bp.to_netcdf(f'{bp_root}{recording}-{store}.nc')
     return None
 
-def load_raw_data(subject, recording, store, select=None, hypno=None, exclude_bad_channels=True, update_hypno=True):
+def _save_raw_data(data, subject, recording, store, overwrite=False):
+    path = f"{opto_loc_root}{subject}/{recording}-{store}.nc"
+    if os.path.exists(path) and overwrite == False:
+        print(f'{path} already exists, skipping -- use overwrite == True to overwrite')
+        return
+    data.to_netcdf(path)
+    return
+
+def _save_bp_set(data, subject, recording, store, overwrite=False):
+    path = f"{opto_loc_root}{subject}/bandpower_data/{recording}-{store}.nc"
+    if os.path.exists(path) and overwrite == False:
+        print(f'{path} already exists, skipping -- use overwrite == True to overwrite')
+        return
+    data.to_netcdf(path)
+    return
+
+def load_raw_data(subject, recording, store, select=None, hypno=None, exclude_bad_channels=False, update_hypno=True):
     """loads the xr.dataarray of raw data for a single recording-store combination.
 
     Args:
@@ -298,13 +400,13 @@ def load_raw_data(subject, recording, store, select=None, hypno=None, exclude_ba
             print(f'{recording} has no hypnogram, added no_states array dataset')
     if exclude_bad_channels:
         exp = aip.get_exp_from_rec(subject, recording)
-        data = nuke_bad_chans(data, subject, exp)
+        data = nuke_bad_chans_from_xrds(data, subject, exp)
                 
     return data
 
 
 
-def load_bandpower_file(subject, recording, store, hypno=True, update_hyp=True, select=None, exclude_bad_channels=True):
+def load_bandpower_file(subject, recording, store, hypno=True, update_hyp=True, select=None, exclude_bad_channels=False):
     """loads the xr.dataset of bandpower data for a single recording-store combination.
 
     Args:
@@ -319,6 +421,8 @@ def load_bandpower_file(subject, recording, store, hypno=True, update_hyp=True, 
     """
     
     path = f"{opto_loc_root}{subject}/bandpower_data/{recording}-{store}.nc"
+    if os.path.exists(path) == False:
+        calc_and_save_bandpower_sets(subject, stores=[store], recordings=[recording])
     data = xr.open_dataset(path)
     if select:
         data = data.sel(select)
@@ -334,10 +438,10 @@ def load_bandpower_file(subject, recording, store, hypno=True, update_hyp=True, 
             data = data.assign_coords(state=("datetime", states))
     if exclude_bad_channels:
         exp = aip.get_exp_from_rec(subject, recording)
-        data = nuke_bad_chans(data, subject, exp)
+        data = nuke_bad_chans_from_xrds(data, subject, exp)
     return data
 
-def load_concat_bandpower(subject, recordings, stores, hypno=True, update_hyp=True, select=None, exclude_bad_channels=True):
+def load_concat_bandpower(subject, recordings, stores, hypno=True, update_hyp=True, select=None, exclude_bad_channels=False):
     """loads and concatenates bandpower data for a list of recordings and stores
 
     Args:
@@ -361,7 +465,7 @@ def load_concat_bandpower(subject, recordings, stores, hypno=True, update_hyp=Tr
     bp = xr.concat(bp_stores, dim='store')
     return bp.sel(select)
 
-def load_concat_raw_data(subject, recordings, stores, select=None):
+def load_concat_raw_data(subject, recordings, stores=['NNXo', 'NNXr'], select=None, exclude_bad_channels=False):
     """loads and concatenates raw data for a list of recordings and stores
 
     Args:
@@ -377,7 +481,7 @@ def load_concat_raw_data(subject, recordings, stores, select=None):
     for store in stores:
         data_recs = []
         for recording in recordings:
-            data_rec = load_raw_data(subject, recording, store, select=select)
+            data_rec = load_raw_data(subject, recording, store, select=select, exclude_bad_channels=exclude_bad_channels)
             data_recs.append(data_rec)
         data_cx_store = xr.concat(data_recs, dim='datetime')
         data_stores.append(data_cx_store)
@@ -385,76 +489,101 @@ def load_concat_raw_data(subject, recordings, stores, select=None):
     data = xr.concat(data_stores, dim='store')
     return data
 
+
+def _interp_raw_fp_data(data, chans_to_interp, sigma_um=50, p=1.3):
+    """Takes a xr.dataarray of raw data and interpolates the bad channels, returns the interpolated dataarray
+
+    Parameters
+    ----------
+    data : _type_
+        _description_
+    chans_to_interp : _type_
+        _description_
+    sigma_um : int, optional
+        _description_, by default 50
+    p : float, optional
+        _description_, by default 1.3
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
+    raw_data = data.values
+    assert len(data.channel.values) == 16, 'this function is written for 16 channel probes'
+    chan_ids = np.arange(1, 17)
+    si_rec = si.extractors.NumpyRecording(raw_data, sampling_frequency=data.fs, channel_ids=chan_ids)
+    si_rec = set_probe_and_channel_locations_on_si_rec(si_rec)
+    intp_rec = si.preprocessing.interpolate_bad_channels(si_rec, chans_to_interp, sigma_um=sigma_um, p=p)
+    intp_data = intp_rec.get_traces()
+    data.data = intp_data
+    return data
+
+def interpol_and_save_fp_data(subject, rec, probe):
+    """Loads the raw FP data, interpolates the bad channels, recalculates the bandpower set, then resaves the fp data and bandpower set.
+
+    Parameters
+    ----------
+    subject : _type_
+        _description_
+    rec : _type_
+        _description_
+    probe : _type_
+        _description_
+    """
+    data = load_raw_data(subject, rec, probe, exclude_bad_channels=False, hypno=False)
+    chans_to_interp = acr.info_pipeline.get_interpol_info(subject, probe)
+    if len(chans_to_interp) == 0:
+        return
+    data = _interp_raw_fp_data(data, chans_to_interp)
+    spg = kx.spectral.get_spextrogram(data, window_length=4, overlap=2)
+    bp = kx.spectral.get_bp_set(spg)
+    _save_raw_data(data, subject, rec, probe, overwrite=True)
+    _save_bp_set(bp, subject, rec, probe, overwrite=True)
+    acr.info_pipeline.write_interpol_done(subject, rec, probe, chans=chans_to_interp, version='lfp')
+    return
+
+def interpolate_exp_lfp_data(subject, exp, probes=['NNXo', 'NNXr']):
+    recs_to_interp = acr.info_pipeline.get_exp_recs(subject, exp)
+    for rec in recs_to_interp:
+        for probe in probes:
+            interpol_and_save_fp_data(subject, rec, probe)
+    return
+
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------
 # FUNCTIONS FOR WORKING WITH THE PUB/DATA FOLDER 
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------
 from acr.utils import swi_subs_exps, sub_probe_locations, sub_exp_types
 
-def get_channels_to_exclude(subject, experiment):
-    ex_path = f'{materials_root}bad_channels.xlsx'
-    ex = pd.read_excel(ex_path)
-    deads = ex.loc[(ex['subject']==subject) & (ex['exp']==experiment)]['dead_channels'].values
-    all_exs = ex.loc[(ex['subject']==subject) & (ex['exp']==experiment)]['all_exclude'].values
-    total_exclusion = []
-    for dead in deads:
-        if type(dead) != str:
-            continue
-        elif dead == '-':
-            continue
-        else:
-            if ',' in dead:
-                dead = dead.split(',')
-                for d in dead:
-                    total_exclusion.append(int(d))
-            else:
-                total_exclusion.append(int(dead))
-    for ex in all_exs:
-        if type(ex) != str:
-            continue
-        elif ex == '-':
-            continue
-        else:
-            if ',' in ex:
-                ex = ex.split(',')
-                for e in ex:
-                    total_exclusion.append(int(e))
-            else:
-                total_exclusion.append(int(ex))
-    return np.unique(total_exclusion)
-
-def exclude_bad_channels_from_df(df, subject, experiment):
-    ex = get_channels_to_exclude(subject, experiment)
-    return df[~df['channel'].isin(ex)]
-
-def read_full_df(folder='rebound_data_1h', subs=None, method='pandas'):
-    if subs is None:
-        subs = swi_subs_exps.keys()
-    
-    data_directory = f'/home/kdriessen/gh_master/acr/pub/data/{folder}'
-    parquet_files = [f for f in os.listdir(data_directory) if f.endswith('.parquet')]
-    
+def read_full_df(folder='reb-bp__1h-cum__mean-rel__full-bl', subs_exp=True):
     dataframes = []  # List to hold all dataframes
-    for file in parquet_files:
-        file_path = os.path.join(data_directory, file)
-        if method == 'pandas':
-            df = pd.read_parquet(file_path)
-        elif method == 'polars':
-            df = pl.read_parquet(file_path)
-        dataframes.append(df)
-    if method == 'pandas':
+    
+    if subs_exp == False:
+        data_directory = f'/home/kdriessen/gh_master/acr/pub/data/{folder}'
+        parquet_files = [f for f in os.listdir(data_directory) if f.endswith('.parquet')]
+        for file in parquet_files:
+            subject = file.split('--')[0]
+            exp = file.split('--')[1].split('.parquet')[0]
+            df = read_subject_rebdf(subject, exp, folder=folder, exclude_bad_chans=True)
+            dataframes.append(df)
         reb_df = pd.concat(dataframes, ignore_index=True)
-    elif method == 'polars':
-        reb_df = pl.concat(dataframes)
-    if method == 'pandas':
-        if 'Unnamed: 0' in reb_df.columns:
-            reb_df = reb_df.drop(columns=['Unnamed: 0'])
+    
+    else:
+        for subject in swi_subs_exps.keys():
+            for exp in swi_subs_exps[subject]:
+                df = read_subject_rebdf(subject, exp, folder=folder, exclude_bad_chans=True)
+                dataframes.append(df)
+        reb_df = pd.concat(dataframes, ignore_index=True)
+    
+    if 'Unnamed: 0' in reb_df.columns:
+        reb_df = reb_df.drop(columns=['Unnamed: 0'])
     return reb_df
 
-def read_subject_rebdf(sub, exp, folder='rebound_data_1h', exclude_bad_chans=True):
+def read_subject_rebdf(sub, exp, folder='reb-bp__1h-cum__mean-rel__full-bl', exclude_bad_chans=True):
     data_path = f'/home/kdriessen/gh_master/acr/pub/data/{folder}/{sub}--{exp}.parquet'
     df = pd.read_parquet(data_path)
     if 'Unnamed: 0' in df.columns:
         df = df.drop(columns=['Unnamed: 0'])
     if exclude_bad_chans:
-        df = exclude_bad_channels_from_df(df, sub, exp)
+        df = nuke_bad_chans_from_df(sub, exp, df, which='both', probe=None)
     return df

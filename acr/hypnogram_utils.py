@@ -12,6 +12,8 @@ import kdephys.plot as kp
 import acr
 import acr.info_pipeline as aip
 from kdephys.hypno.ecephys_hypnogram import trim_hypnogram
+from kdephys.hypno.ecephys_hypnogram import Hypnogram
+import polars as pl
 
 
 def gen_config(
@@ -466,3 +468,84 @@ def get_bl_times(reb_hypno, mode='full'):
     else:
         raise ValueError('mode must be either "full" or "circ"')
     return blt1, blt2
+
+def _get_hd_as_float(subject, exp, update=False, duration='3600s'):
+    hd = acr.hypnogram_utils.create_acr_hyp_dict(subject, exp, update=update, duration=duration)
+    recs, starts, durations = acr.units.get_time_info(subject, f'{exp}-NNXr')
+    full_start_time = pd.Timestamp(starts[0])
+    float_hd = {}
+    for key in hd.keys():
+        h = hd[key].copy()
+        h['start_time'] = (h['start_time'] - full_start_time).dt.total_seconds()
+        h['end_time'] = (h['end_time'] - full_start_time).dt.total_seconds()
+        h['duration'] = h['end_time'] - h['start_time']
+        float_hd[key] = Hypnogram(h)
+    return float_hd
+
+def create_acr_hyp_dict(subject, exp, duration='3600s', update=False, float_hd=False):
+    if float_hd:
+        return _get_hd_as_float(subject, exp, update=update, duration=duration)
+    h = acr.io.load_hypno_full_exp(subject, exp, update=update)
+    hd = {}
+    sd_true_start, stim_start, stim_end, rebound_start, full_exp_start = acr.info_pipeline.get_sd_exp_landmarks(subject, exp, update=False)
+    reb_hypno = acr.hypnogram_utils.get_cumulative_rebound_hypno(h, rebound_start, cum_dur=duration)
+    hd['rebound'] = reb_hypno
+    reb_end = reb_hypno.end_time.max()
+    xday = pd.Timestamp(rebound_start).strftime('%Y-%m-%d')
+    xday_end = pd.Timestamp(xday+' 21:00:00')
+    full_bl_t1, full_bl_t2 = acr.hypnogram_utils.get_bl_times(reb_hypno, mode='full')
+    circ_bl_t1, circ_bl_t2 = acr.hypnogram_utils.get_bl_times(reb_hypno, mode='circ')
+    hd['early_bl'] = h.trim_select(full_bl_t1, full_bl_t2).keep_states(['NREM']).keep_first(duration)
+    hd['circ_bl'] =  h.trim_select(circ_bl_t1, full_bl_t2).keep_states(['NREM']).keep_first(duration)
+    hd['late_rebound'] = h.trim_select(reb_end, xday_end).keep_states(['NREM']).keep_last(duration)
+    hd['stim'] = h.trim_select(stim_start, stim_end)
+    hd['early_sd'] = h.trim_select(sd_true_start, stim_start).keep_states(['Wake', 'Wake-Good']).keep_first(duration)
+    hd['late_sd'] = h.trim_select(sd_true_start, stim_start).keep_states(['Wake', 'Wake-Good']).keep_last(duration)
+    return hd
+
+def label_df_with_hypno_conditions(df, hd, col=None, label_col='condition', max_bouts=1000): 
+    if col == None:
+        col = 'datetime'
+    if type(df) == pl.DataFrame:
+        return _label_polars_df(df, hd, col, max_bouts=max_bouts)
+    else:
+        df[label_col] = 'None'
+        for key in hd.keys():
+            for bout in hd[key].itertuples():
+                df.loc[((df[col] >= bout.start_time) & (df[col] <= bout.end_time)), label_col] = key
+        return df
+
+
+def _label_polars_df(df, hd, col, label_col='condition', max_bouts=1000):
+    df = df.with_columns(condition=pl.lit('None'))
+    for key in hd.keys():
+        for i, bout in enumerate(hd[key].itertuples()):
+            if i>max_bouts:
+                break
+            df = df.with_columns(pl.when((pl.col(col) >= bout.start_time) & (pl.col(col) <= bout.end_time)).then(pl.lit(key)).otherwise(pl.col('condition')).alias('condition'))
+    return df
+
+def sel_random_bouts_for_plotting(hd, key, window_size=5, num_times=8, state='NREM'):
+    """takes a hypno dict, selects a key. Then finds bouts of NREM at least 30 seconds long and randomly selects a 5 second window from each bout. 
+
+    Parameters
+    ----------
+    hd : _type_
+        _description_
+    key : _type_
+        _description_
+    """
+    hyp = hd[key].keep_states([state])
+    bouts = hyp.loc[hyp.duration>pd.Timedelta(seconds=30)]
+    bout_starts = bouts.start_time.values
+    bout_ends = bouts.end_time.values
+    starts = []
+    ends = []
+    random_bouts_to_plot = np.random.choice(len(bout_starts), num_times, replace=False)
+    for bout in random_bouts_to_plot:
+        start, end = pd.Timestamp(bout_starts[bout]), pd.Timestamp(bout_ends[bout])
+        duration = (end-start).total_seconds()
+        start_time = np.random.choice(int(duration-window_size))
+        starts.append(start+pd.Timedelta(seconds=start_time))
+        ends.append(start+pd.Timedelta(seconds=start_time+window_size))
+    return starts, ends
