@@ -1,7 +1,0 @@
-- correct all pulse effectiveness analyses, using template of ACR_20-swi #TODO
-
-- run sorting to see if reduction in firing rate after photoinhibition is legit or not #TODO
-
-- update the LFP raw data processing to check that certain conditions are satisfied in rec_quality #TODO
-
-- update the rec_quality functions to check things more completely #TODO
