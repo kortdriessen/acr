@@ -481,12 +481,14 @@ def load_concat_raw_data(subject, recordings, stores=['NNXo', 'NNXr'], select=No
     for store in stores:
         data_recs = []
         for recording in recordings:
-            data_rec = load_raw_data(subject, recording, store, select=select, exclude_bad_channels=exclude_bad_channels)
+            data_rec = load_raw_data(subject, recording, store, exclude_bad_channels=exclude_bad_channels)
             data_recs.append(data_rec)
         data_cx_store = xr.concat(data_recs, dim='datetime')
         data_stores.append(data_cx_store)
     
     data = xr.concat(data_stores, dim='store')
+    if select:
+        data = data.sel(select)
     return data
 
 

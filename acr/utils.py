@@ -6,10 +6,13 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import polars
+import sys
+import importlib.util
 
 raw_data_root = "/Volumes/neuropixel_archive/Data/acr_archive/"
 materials_root = "/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/"
 opto_loc_root = "/Volumes/opto_loc/Data/"
+pub_data_root = "/home/kdriessen/gh_master/PUBLICATION__ACR/data"
 
 PAPER_FIGURE_ROOT = "/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/plots_presentations_etc/paper_figures"
 
@@ -39,6 +42,9 @@ pal_full = ['#475ED1',
             '#bf56dc',
             '#adb8eb',
             '#fcb583',]
+
+
+
 
 sub_swi_exps = {
     "ACR_14": ["swi"],
@@ -162,6 +168,14 @@ sub_exp_types = {
     "ACR_44": "som",
     "ACR_45": "som",
 }
+
+
+sub_exp_manifest = {}
+sub_exp_manifest['swi'] = sub_swi_exps
+sub_exp_manifest['swisin'] = sub_swisin_exps
+sub_exp_manifest['swinat'] = sub_swinat_exps
+sub_exp_manifest['control'] = sub_ctrl_exps
+
 
 som_animals = [sub for sub in sub_exp_types if sub_exp_types[sub] == 'som']
 acr_animals = [sub for sub in sub_exp_types if sub_exp_types[sub] == 'acr']
@@ -418,6 +432,13 @@ def unify_exp_names_in_df(df):
     df.loc[df['exp']=='swisin2', 'exp'] = 'swisin'
     return df
 
+def import_publication_functions(path, name):
+    # Import the module using importlib
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 #==============================================================================================================
