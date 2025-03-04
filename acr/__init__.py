@@ -15,5 +15,4 @@ from . import (
     sync,
     fp,
     dev,
-    data_agg,
 )

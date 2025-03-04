@@ -11,6 +11,7 @@ from kdephys.hypno.ecephys_hypnogram import trim_hypnogram
 import acr.hypnogram_utils as ahu
 import xarray as xr
 from typing import Union, Tuple, Dict, List, Optional, Any
+from acr.utils import pub_data_root
 
 # IMPORTANT PARAMETERS
 # --------------------
@@ -93,7 +94,7 @@ def gen_bp_df(subject: str, exp: str, save_to: str = 'return', reprocess_existin
         return bp_df
 
 
-def load_raw_fr_df(subject: str, exp: str) -> pl.DataFrame:
+def load_raw_fr_df(subject: str, exp: str, data_dir: str = f'{pub_data_root}/raw_fr') -> pl.DataFrame:
     """Load a raw firing rate dataframe for a subject and experiment.
     
     Parameters
@@ -108,7 +109,7 @@ def load_raw_fr_df(subject: str, exp: str) -> pl.DataFrame:
     pl.DataFrame
         The raw firing rate dataframe.
     """
-    return pl.read_parquet(f'./combo_data/raw_fr/{subject}--{exp}.parquet')
+    return pl.read_parquet(f'{data_dir}/{subject}--{exp}.parquet')
 
 def gen_fr_df(subject: str, exp: str, every: int = 2, save_to: str = 'return', 
               reprocess_existing: bool = False, update: bool = False) -> Optional[pl.DataFrame]:
@@ -216,7 +217,7 @@ def make_raw_bp_df_relative_to_baseline(df: Union[pd.DataFrame, pl.DataFrame], c
         df_merged['bandpower_rel'] = df_merged['bandpower'] / df_merged['bandpower_bl']
         return df_merged
 
-def load_raw_bp_df(subject: str, exp: str, method: str = 'pl') -> Union[pd.DataFrame, pl.DataFrame]:
+def load_raw_bp_df(subject: str, exp: str, method: str = 'pl', data_dir: str = f'{pub_data_root}/raw_bp') -> Union[pd.DataFrame, pl.DataFrame]:
     """Load a raw bandpower dataframe for a subject and experiment.
     
     Parameters
@@ -227,6 +228,8 @@ def load_raw_bp_df(subject: str, exp: str, method: str = 'pl') -> Union[pd.DataF
         The experiment ID.
     method : str, optional
         The method to use for loading the dataframe, either 'pd' for pandas or 'pl' for polars, by default 'pl'.
+    data_dir : str, optional
+        The directory to save the dataframe to, by default f'{pub_data_root}/raw_bp'.
         
     Returns
     -------
@@ -234,9 +237,9 @@ def load_raw_bp_df(subject: str, exp: str, method: str = 'pl') -> Union[pd.DataF
         The raw bandpower dataframe.
     """
     if method == 'pd':
-        return pd.read_parquet(f'./combo_data/raw_bp/{subject}--{exp}.parquet')
+        return pd.read_parquet(f'{data_dir}/{subject}--{exp}.parquet')
     elif method == 'pl':
-        return pl.read_parquet(f'./combo_data/raw_bp/{subject}--{exp}.parquet')
+        return pl.read_parquet(f'{data_dir}/{subject}--{exp}.parquet')
     
 def norm_single_exp_reb_to_contra(df: pl.DataFrame, method: str = 'median') -> pl.DataFrame:
     """Requires a df with a single experiment, only one band, in the rebound (or any other unitary condition) only.
@@ -275,7 +278,7 @@ def read_sc_mask(subject: str, exp: str) -> xr.DataArray:
     xr.DataArray
         The single-channel OFF period mask as an xarray DataArray.
     """
-    zmsk = xr.open_zarr(f'./combo_data/sc_full_masks/{subject}--{exp}.zarr')
+    zmsk = xr.open_zarr(f'{pub_data_root}/sc_full_masks/{subject}--{exp}.zarr')
     return zmsk['sc_mask']
 
 def create_hybrid_off_df(subject: str, exp: str, chan_threshold: int = 9) -> pd.DataFrame:
@@ -372,4 +375,49 @@ def make_hdf_rel(hdf: pd.DataFrame, rel_cond: str = 'full_bl', method: str = 'me
     hdf['duration_rel'] = hdf['duration']/hdf['duration_bl']
     hdf['channel_avg_rel'] = hdf['channel_avg']/hdf['channel_avg_bl']
     return hdf
+
+def create_reb_spg(sub, exp, drop_chans=None):
+    spgo = _load_zarr_spg(sub, exp, 'NNXo')
+    spgr = _load_zarr_spg(sub, exp, 'NNXr')
+    spg = xr.concat([spgo, spgr], dim='store')
+    h = acr.io.load_hypno_full_exp(sub, exp)
+    labels = kde.hypno.hypno.get_states_fast(h, spg.datetime.values)
+    spg = spg.assign_coords(state=('datetime', labels))
+    bl_day = spg.datetime.min().values.astype(str).split('T')[0]
+    bl_start = pd.Timestamp(bl_day + ' 09:00:00')
+    bl_end = pd.Timestamp(bl_day + ' 21:00:00')
+    hd = acr.hypnogram_utils.create_acr_hyp_dict(sub, exp)
+    reb_start = hd['rebound'].start_time.min()
+    reb_end = hd['rebound'].end_time.max()
+    
+    bl_spg = spg.sel(datetime=slice(bl_start, bl_end)).where(spg.state == 'NREM', drop=True)
+    reb_spg = spg.sel(datetime=slice(reb_start, reb_end)).where(spg.state == 'NREM', drop=True)
+    
+    rspg = reb_spg.to_dataframe(name='power')
+    rspg.reset_index(inplace=True)
+    rspg = rspg.query('frequency < 20')
+
+    blspg = bl_spg.to_dataframe(name='power')
+    blspg.reset_index(inplace=True)
+    blspg = blspg.query('frequency < 20')
+    
+    bl_means = blspg.groupby(['store', 'channel', 'frequency']).mean().reset_index()
+    rspg = rspg.merge(bl_means, on=['store', 'channel', 'frequency'], suffixes=['', '_bl'])
+
+    rspg['power_rel'] = rspg['power'] / rspg['power_bl']
+    
+    if drop_chans is not None:
+        rspg = rspg.loc[~rspg['channel'].isin(drop_chans)]
+    
+    reb_means = rspg.groupby(['store', 'frequency']).mean().reset_index()
+    reb_means['subject'] = sub
+    return reb_means
+
+def _load_zarr_spg(sub, exp, store):
+    p = f'{pub_data_root}/spgs_multitaper/{sub}--{exp}--{store}.zarr'
+    spg = xr.open_zarr(p).to_dataarray(dim='spectro')
+    spg = spg.compute()
+    newspg = xr.DataArray(spg.data[0], dims=('channel', 'frequency', 'datetime'), coords={'channel': spg.channel.values, 'frequency': spg.frequency.values, 'datetime': spg.datetime.values})
+    newspg = newspg.assign_coords({'store': store})
+    return newspg
 
