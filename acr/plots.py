@@ -8,6 +8,8 @@ import kdephys as kde
 from acr.utils import NNXR_GRAY, NNXO_BLUE, SOM_BLUE, BAND_ORDER, swi_subs_exps
 import math
 import os
+import kdephys.plot as kp
+import kdephys.hypno as kh
 bp_def = dict(
     sub_delta=(0.5, 2),
     delta=(0.5, 4),
@@ -36,7 +38,7 @@ def simple_bp_lineplot(bp, ax, ss=12, color="k", linewidth=2, hyp=None):
 
     """
     if ss:
-        bp = kd.get_smoothed_da(bp, smoothing_sigma=ss)
+        bp = kde.xr.utils.get_smoothed_da(bp, smoothing_sigma=ss)
     ax = sns.lineplot(x=bp.datetime, y=bp, color=color, linewidth=linewidth, ax=ax)
     if hyp is not None:
         kp.shade_hypno_for_me(hypnogram=hyp, ax=ax)
@@ -54,7 +56,7 @@ def simple_shaded_bp(bp, hyp, ax, ss=12, color="k", linewidth=2):
     This is just a plotting function, does not do any calculation except, if ss
     is specified, smooth a copy of the bandpower array for display purposes"""
     if ss:
-        bp = kd.get_smoothed_da(bp, smoothing_sigma=ss)
+        bp = kde.xr.utils.get_smoothed_da(bp, smoothing_sigma=ss)
     ax = sns.lineplot(x=bp.datetime, y=bp, color=color, linewidth=linewidth, ax=ax)
     kp.shade_hypno_for_me(hypnogram=hyp, ax=ax)
     return ax
@@ -64,8 +66,8 @@ def get_bp_rel(data, comp, comp_hyp, comp_state):
     if comp_state is not None:
         comp = kh.keep_states(comp, comp_hyp, comp_state)
 
-    data_bp = kd.get_bp_set2(data, bp_def)
-    comp_bp = kd.get_bp_set2(comp, bp_def)
+    data_bp = kde.xr.spectral.get_bp_set(data, bp_def)
+    comp_bp = kde.xr.spectral.get_bp_set(comp, bp_def)
 
     comp_mean = comp_bp.mean(dim="datetime")
 
@@ -177,14 +179,6 @@ def get_psd_rel(x, spg, hyp):
 
 def n_freq_bins(da, f_range):
     return da.sel(frequency=slice(*f_range)).frequency.size
-
-
-def auc_bandpowers(psd1, psd2, freqs):
-    auc_df = pd.DataFrame()
-    for f in kd.get_key_list(freqs):
-        auc = kd.compare_auc(psd1, psd2, freqs[f], title=f)
-        auc_df[f] = auc
-    return auc_df.drop(labels="omega", axis=1)
 
 
 def pax_scatter_quantal(df, chan, ax):

@@ -383,19 +383,19 @@ def get_arena_df(subject, cond='test'):
     grid_df = grid_df.groupby(['subject', 'condition', 'node']).median(numeric_only=True).reset_index()
     return grid_df
 
-def DEPRICATED_add_side_col(sub_df, novel=''):
+def DEPRICATED_add_side_col(sub_df, novel='', cond='none'):
     grid_df = sub_df.loc[sub_df['node'].isin(arena_nodes)]
     grid_df = grid_df.groupby(['subject', 'condition', 'node']).median(numeric_only=True).reset_index()
     midline_x = (grid_df.loc[grid_df.node == 'midline_upper']['x'].values[0] + grid_df.loc[grid_df.node == 'midline_lower']['x'].values[0]) / 2
     if novel == 'left':
-        cond_df.loc[cond_df['x'] < midline_x, 'side'] = 'novel'
-        cond_df.loc[cond_df['x'] >= midline_x, 'side'] = 'familiar'
+        sub_df.loc[sub_df['x'] < midline_x, 'side'] = 'novel'
+        sub_df.loc[sub_df['x'] >= midline_x, 'side'] = 'familiar'
     elif novel == 'right':
-        cond_df.loc[cond_df['x'] < midline_x, 'side'] = 'familiar'
-        cond_df.loc[cond_df['x'] >= midline_x, 'side'] = 'novel'
+        sub_df.loc[sub_df['x'] < midline_x, 'side'] = 'familiar'
+        sub_df.loc[sub_df['x'] >= midline_x, 'side'] = 'novel'
     else:
         raise ValueError('novel side not recognized')
-    sub_df.loc[sub_df['condition'] == cond, 'side'] = cond_df['side']
+    sub_df.loc[sub_df['condition'] == cond, 'side'] = sub_df['side']
     return sub_df
 
 def sum_and_plot_scored_sleep(path, time_scored=14400):
