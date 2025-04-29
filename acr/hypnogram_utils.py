@@ -503,6 +503,29 @@ def create_acr_hyp_dict(subject, exp, duration='3600s', update=False, float_hd=F
     hd['late_sd'] = h.trim_select(sd_true_start, stim_start).keep_states(['Wake', 'Wake-Good']).keep_last(duration)
     return hd
 
+def add_states_to_dataframe(df, h):
+    start_times = h['start_time'].values
+    end_times = h['end_time'].values
+    states = h['state'].values
+    times = df['datetime'].values
+    
+    # Find the indices in the start_times where each time in `times` would be inserted
+    indices = np.searchsorted(start_times, times, side='right') - 1
+
+    # Ensure the found index is within bounds and the time is within the bout
+    indices = np.clip(indices, 0, len(start_times) - 1)
+    valid_mask = (times >= start_times[indices]) & (times <= end_times[indices])
+
+    # Create an array of the same shape as `times` filled with the corresponding states
+    state_array = np.empty(times.shape, dtype=states.dtype)
+    state_array[valid_mask] = states[indices[valid_mask]]
+
+    # If there are times outside of the hypnogram ranges (unlikely in your case)
+    # you may want to handle them, e.g., by setting a default state like 'unknown'
+    state_array[~valid_mask] = 'unlabelled'  # or whatever is appropriate
+    df['state'] = state_array
+    return df
+
 def label_df_with_hypno_conditions(df, hd, col=None, label_col='condition', max_bouts=1000): 
     if col == None:
         col = 'datetime'
