@@ -17,12 +17,17 @@ pub_data_root = "/home/kdriessen/gh_master/PUBLICATION__ACR/data"
 PAPER_FIGURE_ROOT = "/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/plots_presentations_etc/paper_figures"
 
 
-#SOM_BLUE = '#0046B8'
+
 SOM_BLUE = '#0528b2'
 ACR_BLUE = '#54A3FF'
-
+LASER_BLUE = '#00B0F0'
+NREM_RED = '#983F3F'
 NNXR_GRAY = "#4b4e4d"
-NNXO_BLUE = "dodgerblue"
+NNXO_BLUE = '#00B0F0'
+EMG_SLATE = '#2b3e4b'
+VIOLET = '#a764fa'
+BACKUP_RED = '#ff7575'
+
 
 BAND_ORDER = ['delta1', 'delta2', 'delta', 'theta', 'alpha', 'sigma', 'beta', 'low_gamma', 'high_gamma']
 COND_ORDER = ['early_bl', 'circ_bl', 'early_sd', 'late_sd', 'stim', 'rebound', 'late_rebound']
@@ -103,9 +108,9 @@ sub_swinat_exps = {
 sub_ctrl_exps = {
     'ACR_19': ['controlsd'],
     'ACR_23': ['controlsd'],
-    'ACR_31': ['controlsd'],
+    'ACR_31': ['controlsd'], #fully scored
     'ACR_33': ['controlsd'],
-    'ACR_34': ['controlsd'],
+    'ACR_34': ['controlsd'], #fully scored
     'ACR_35': ['controlsd'],
     'ACR_37': ['controlsd'],
 }
@@ -141,7 +146,7 @@ sub_probe_locations = {
 }
 
 sub_exp_types = {
-    "ACR_14": "acr",
+    #"ACR_14": "acr",
     "ACR_16": "acr",
     "ACR_17": "acr",
     "ACR_18": "acr",
