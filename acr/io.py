@@ -549,6 +549,7 @@ def interpolate_exp_lfp_data(subject, exp, probes=['NNXo', 'NNXr']):
     recs_to_interp = acr.info_pipeline.get_exp_recs(subject, exp)
     for rec in recs_to_interp:
         for probe in probes:
+            print(f'interpolating {rec}, {probe}')
             interpol_and_save_fp_data(subject, rec, probe)
     return
 

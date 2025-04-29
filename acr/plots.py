@@ -5,10 +5,9 @@ import seaborn as sns
 import acr
 from acr.utils import materials_root
 import kdephys as kde
-# plt.style.use(Path("acr_plots.mplstyle"))
 from acr.utils import NNXR_GRAY, NNXO_BLUE, SOM_BLUE, BAND_ORDER, swi_subs_exps
 import math
-
+import os
 bp_def = dict(
     sub_delta=(0.5, 2),
     delta=(0.5, 4),
@@ -21,6 +20,13 @@ bp_def = dict(
     omega=(300, 700),
 )
 
+def pub():
+    current_path = os.path.dirname(os.path.abspath(__file__))
+    return plt.style.use(os.path.join(current_path, 'plot_styles/acr_pub.mplstyle'))
+
+def lrg():
+    current_path = os.path.dirname(os.path.abspath(__file__))
+    return plt.style.use(os.path.join(current_path, 'plot_styles/acr_pub_large.mplstyle'))
 
 def simple_bp_lineplot(bp, ax, ss=12, color="k", linewidth=2, hyp=None):
     """
