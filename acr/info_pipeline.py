@@ -969,7 +969,7 @@ def get_exp_bookends(subject, exp):
     exp_end = exp_start + pd.Timedelta('12h')
     return exp_start, exp_end
 
-def get_sd_exp_landmarks(subject, exp, update=True):
+def get_sd_exp_landmarks(subject, exp, update=True, return_early=False):
     """
     Gets Experiment Landmarks, relies on up to date and correct spikesorting spreadsheet!!
     ---------------------------------------------------------------------------------------
@@ -1002,6 +1002,9 @@ def get_sd_exp_landmarks(subject, exp, update=True):
     recordings_on_exp_day = [rec for rec in exp_recs if exp_day in rec_times[rec]['start']]
     exp_recording_starts = [pd.Timestamp(rec_times[rec]['start']) for rec in recordings_on_exp_day]
     sd_true_start = min(exp_recording_starts) 
+    
+    if return_early:
+        return sd_true_start, full_exp_start
     
     #load stim times
     stim_start, stim_end = acr.stim.stim_bookends(subject, exp)
