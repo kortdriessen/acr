@@ -15,4 +15,5 @@ from . import (
     sync,
     fp,
     dev,
+    nor,
 )
