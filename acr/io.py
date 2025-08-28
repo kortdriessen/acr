@@ -310,7 +310,54 @@ def load_hypno_full_exp(subject, exp, corrections=True, float=False, update=True
 
 # ---------------------------------------------------- Data + Spectral io --------------------------------------
 
-def calc_and_save_bandpower_sets(subject, stores=['NNXo', 'NNXr'], recordings=None, window_length=4, overlap=2, redo=False):
+def calc_and_save_bandpower_sets(subject, stores=['NNXo', 'NNXr'], recordings=None, window_length=4, overlap=2, redo=False, folder='bandpower_data'):
+    """
+    NOTE: THIS IS THE OLD FUNCTION FOR CALCULATING BANDPOWER SETS, USE MT_CALC_AND_SAVE_BANDPOWER_SETS INSTEAD; this computes the non-multitaper version!
+    NOTE: ONLY USE THIS IF BANDPOWER SETS NOT ALREADY CALCULATED
+    NOTE: MUST HAVE DATA STORED IN SUBJECT FOLDER AS NETCDF FILE
+    loads and calculates a bandpower dataset for each recording-store combindation, 
+    then adds the recording and store information to their coordinates, and saves them to the bandpower_data folder
+    
+    Args:
+        subject (str): subject name
+        stores (list): data stores to use
+        recordings (list): recordings, defaults to none, in which case all processed recordings in important recordings list are used
+    Returns:
+        Nothing - only used to save bandpower datasets to bandpower_data folder
+    """
+    raise DeprecationWarning("This function is deprecated, use MT_CALC_AND_SAVE_BANDPOWER_SETS instead")
+    pp_recs = aip.current_processed_recordings(subject)
+    impt_recs = aip.get_impt_recs(subject)
+
+    if recordings is None:
+        recordings = [r for r in pp_recs if r in impt_recs]
+
+    # make sure the bandpower_data folder exists
+    root = f'/Volumes/opto_loc/Data/{subject}/'
+    dirs = os.listdir(root)
+    dirs = [d for d in dirs if os.path.isdir(root+d)]
+    if folder not in dirs:
+        os.makedirs(root+folder, exist_ok=False)
+
+    bp_root = f'/Volumes/opto_loc/Data/{subject}/{folder}/'
+    bp_recs = os.listdir(bp_root)
+    for store in stores:
+        for recording in recordings:
+            if f'{recording}-{store}.nc' in bp_recs:
+                if redo == False:
+                    print(f'{recording}-{store} already calculated')
+                    continue
+            data_root = f"{opto_loc_root}{subject}"
+            bp_root = f'{data_root}/{folder}/'
+            data = load_raw_data(subject, recording, store)
+            spg = kx.spectral.get_spextrogram(data, window_length=window_length, overlap=overlap)
+            bp = kx.spectral.get_bp_set(spg)
+            bp = bp.assign_coords(recording=recording, store=store)
+            bp.to_netcdf(f'{bp_root}{recording}-{store}.nc')
+    return None
+
+
+def MT_calc_and_save_bandpower_sets(subject, stores=['NNXo', 'NNXr'], recordings=None, seg_length=2, overlap=1, NW=4, redo=False):
     """
     NOTE: ONLY USE THIS IF BANDPOWER SETS NOT ALREADY CALCULATED
     NOTE: MUST HAVE DATA STORED IN SUBJECT FOLDER AS NETCDF FILE
@@ -334,10 +381,10 @@ def calc_and_save_bandpower_sets(subject, stores=['NNXo', 'NNXr'], recordings=No
     root = f'/Volumes/opto_loc/Data/{subject}/'
     dirs = os.listdir(root)
     dirs = [d for d in dirs if os.path.isdir(root+d)]
-    if 'bandpower_data' not in dirs:
-        os.makedirs(root+'bandpower_data', exist_ok=False)
+    if 'mt_bandpower_data' not in dirs:
+        os.makedirs(root+'mt_bandpower_data', exist_ok=False)
 
-    bp_root = f'/Volumes/opto_loc/Data/{subject}/bandpower_data/'
+    bp_root = f'/Volumes/opto_loc/Data/{subject}/mt_bandpower_data/'
     bp_recs = os.listdir(bp_root)
     for store in stores:
         for recording in recordings:
@@ -345,25 +392,33 @@ def calc_and_save_bandpower_sets(subject, stores=['NNXo', 'NNXr'], recordings=No
                 if redo == False:
                     print(f'{recording}-{store} already calculated')
                     continue
+            print(f'calculating {recording}-{store} MT bandpower set')
             data_root = f"{opto_loc_root}{subject}"
-            bp_root = f'{data_root}/bandpower_data/'
+            bp_root = f'{data_root}/mt_bandpower_data/'
             data = load_raw_data(subject, recording, store)
-            spg = kx.spectral.get_spextrogram(data, window_length=window_length, overlap=overlap)
+            spg = kx.spectral.get_mt_spextrogram(data, subject=subject, rec=recording, seg_length=seg_length, overlap=overlap, NW=NW)
             bp = kx.spectral.get_bp_set(spg)
             bp = bp.assign_coords(recording=recording, store=store)
             bp.to_netcdf(f'{bp_root}{recording}-{store}.nc')
     return None
 
-def _save_raw_data(data, subject, recording, store, overwrite=False):
+
+def save_raw_data(data, subject, recording, store, overwrite=False, new_path=False):
     path = f"{opto_loc_root}{subject}/{recording}-{store}.nc"
+    if new_path:
+        path = f"{opto_loc_root}{subject}/{recording}-{store}--NEW.nc"
     if os.path.exists(path) and overwrite == False:
         print(f'{path} already exists, skipping -- use overwrite == True to overwrite')
         return
-    data.to_netcdf(path)
+    if os.path.exists(path) and overwrite == True:
+        os.system(f'rm -rf {path}')
+        data.to_netcdf(path)
+    if os.path.exists(path) == False:
+        data.to_netcdf(path)
     return
 
-def _save_bp_set(data, subject, recording, store, overwrite=False):
-    path = f"{opto_loc_root}{subject}/bandpower_data/{recording}-{store}.nc"
+def _save_bp_set(data, subject, recording, store, overwrite=False, folder='mt_bandpower_data'):
+    path = f"{opto_loc_root}{subject}/{folder}/{recording}-{store}.nc"
     if os.path.exists(path) and overwrite == False:
         print(f'{path} already exists, skipping -- use overwrite == True to overwrite')
         return
@@ -406,7 +461,7 @@ def load_raw_data(subject, recording, store, select=None, hypno=None, exclude_ba
 
 
 
-def load_bandpower_file(subject, recording, store, hypno=True, update_hyp=True, select=None, exclude_bad_channels=False):
+def load_bandpower_file(subject, recording, store, hypno=True, update_hyp=True, select=None, exclude_bad_channels=False, folder='mt_bandpower_data'):
     """loads the xr.dataset of bandpower data for a single recording-store combination.
 
     Args:
@@ -420,9 +475,10 @@ def load_bandpower_file(subject, recording, store, hypno=True, update_hyp=True, 
         xr.dataset of bandpower data for recording-store combination
     """
     
-    path = f"{opto_loc_root}{subject}/bandpower_data/{recording}-{store}.nc"
+    path = f"{opto_loc_root}{subject}/{folder}/{recording}-{store}.nc"
     if os.path.exists(path) == False:
-        calc_and_save_bandpower_sets(subject, stores=[store], recordings=[recording])
+        #calc_and_save_bandpower_sets(subject, stores=[store], recordings=[recording])
+        raise FileNotFoundError(f'{path} does not exist, run calc_and_save_bandpower_sets(subject, stores=[store], recordings=[recording]) to calculate')
     data = xr.open_dataset(path)
     if select:
         data = data.sel(select)
@@ -441,7 +497,7 @@ def load_bandpower_file(subject, recording, store, hypno=True, update_hyp=True, 
         data = nuke_bad_chans_from_xrds(data, subject, exp)
     return data
 
-def load_concat_bandpower(subject, recordings, stores, hypno=True, update_hyp=True, select=None, exclude_bad_channels=False):
+def load_concat_bandpower(subject, recordings, stores, hypno=True, update_hyp=True, select=None, exclude_bad_channels=False, folder='mt_bandpower_data'):
     """loads and concatenates bandpower data for a list of recordings and stores
 
     Args:
@@ -458,7 +514,7 @@ def load_concat_bandpower(subject, recordings, stores, hypno=True, update_hyp=Tr
     for store in stores:
         bp_recs = []
         for recording in recordings:
-            bp = load_bandpower_file(subject, recording, store, hypno=hypno, update_hyp=update_hyp, exclude_bad_channels=exclude_bad_channels)
+            bp = load_bandpower_file(subject, recording, store, hypno=hypno, update_hyp=update_hyp, exclude_bad_channels=exclude_bad_channels, folder=folder)
             bp_recs.append(bp)
         bp_cx_store = xr.concat(bp_recs, dim='datetime')
         bp_stores.append(bp_cx_store)
@@ -521,7 +577,7 @@ def _interp_raw_fp_data(data, chans_to_interp, sigma_um=50, p=1.3):
     data.data = intp_data
     return data
 
-def interpol_and_save_fp_data(subject, rec, probe):
+def interpol_and_save_fp_data(subject, rec, probe, redo=False, folder='mt_bandpower_data', new_path=False, data=None):
     """Loads the raw FP data, interpolates the bad channels, recalculates the bandpower set, then resaves the fp data and bandpower set.
 
     Parameters
@@ -533,24 +589,33 @@ def interpol_and_save_fp_data(subject, rec, probe):
     probe : _type_
         _description_
     """
-    data = load_raw_data(subject, rec, probe, exclude_bad_channels=False, hypno=False)
+    if data is None:
+        data = load_raw_data(subject, rec, probe, exclude_bad_channels=False, hypno=False)
+    else:
+        data = data
     chans_to_interp = acr.info_pipeline.get_interpol_info(subject, probe)
     if len(chans_to_interp) == 0:
         return
+    if redo == False:
+        if acr.info_pipeline.read_interpol_done(subject, rec, probe, version='lfp') is not None:
+            return
     data = _interp_raw_fp_data(data, chans_to_interp)
-    spg = kx.spectral.get_spextrogram(data, window_length=4, overlap=2)
+    spg = kx.spectral.get_mt_spextrogram(data, subject=subject, rec=rec, seg_length=2, overlap=1, NW=4)
     bp = kx.spectral.get_bp_set(spg)
-    _save_raw_data(data, subject, rec, probe, overwrite=True)
-    _save_bp_set(bp, subject, rec, probe, overwrite=True)
+    save_raw_data(data, subject, rec, probe, overwrite=True, new_path=new_path)
+    _save_bp_set(bp, subject, rec, probe, overwrite=True, folder=folder)
     acr.info_pipeline.write_interpol_done(subject, rec, probe, chans=chans_to_interp, version='lfp')
     return
 
-def interpolate_exp_lfp_data(subject, exp, probes=['NNXo', 'NNXr']):
+def interpolate_exp_lfp_data(subject, exp, probes=['NNXo', 'NNXr'], redo=False, folder='mt_bandpower_data'):
     recs_to_interp = acr.info_pipeline.get_exp_recs(subject, exp)
     for rec in recs_to_interp:
         for probe in probes:
+            if redo == False:
+                if acr.info_pipeline.read_interpol_done(subject, rec, probe, version='lfp') is not None:
+                    continue
             print(f'interpolating {rec}, {probe}')
-            interpol_and_save_fp_data(subject, rec, probe)
+            interpol_and_save_fp_data(subject, rec, probe, folder=folder)
     return
 
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------

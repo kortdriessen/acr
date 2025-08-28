@@ -22,13 +22,26 @@ bp_def = dict(
     omega=(300, 700),
 )
 
-def pub():
+def pub(xticks=False, spine_width=2.5):
     current_path = os.path.dirname(os.path.abspath(__file__))
-    return plt.style.use(os.path.join(current_path, 'plot_styles/acr_pub.mplstyle'))
+    plt.style.use(os.path.join(current_path, 'plot_styles/acr_pub_large.mplstyle'))
+    plt.rcParams['xtick.bottom'] = xticks
+    plt.rcParams['axes.linewidth'] = spine_width
+    return
 
-def lrg():
+def lrg(xticks=False, spine_width=2.5):
     current_path = os.path.dirname(os.path.abspath(__file__))
+    plt.style.use(os.path.join(current_path, 'plot_styles/acr_pub_large.mplstyle'))
+    plt.rcParams['xtick.bottom'] = xticks
+    plt.rcParams['axes.linewidth'] = spine_width
     return plt.style.use(os.path.join(current_path, 'plot_styles/acr_pub_large.mplstyle'))
+
+def supl(xticks=False, spine_width=2.5):
+    current_path = os.path.dirname(os.path.abspath(__file__))
+    plt.style.use(os.path.join(current_path, 'plot_styles/acr_pub_supplement.mplstyle'))
+    plt.rcParams['xtick.bottom'] = xticks
+    plt.rcParams['axes.linewidth'] = spine_width
+    return plt.style.use(os.path.join(current_path, 'plot_styles/acr_pub_supplement.mplstyle'))
 
 def simple_bp_lineplot(bp, ax, ss=12, color="k", linewidth=2, hyp=None):
     """
@@ -192,6 +205,77 @@ def pax_scatter_quantal(df, chan, ax):
     ax.set_title("Ch-" + str(chan), fontweight="bold")
     return ax
 
+def plot_probe_locations(subject):
+    """
+    Visualize channel locations for e4ach probe
+    
+    Parameters
+    ----------
+    hist_data : dict
+        Dictionary containing probe channel locations with structure:
+        {probe_name: {channel_num: {'region': str, 'layer': str}}}
+    """
+    hist_data = acr.info_pipeline.get_channel_map(subject)
+    fig, ax = plt.subplots(figsize=(14, 12))
+    
+    # Plot each probe
+    for probe in ['NNXr', 'NNXo']:
+        channels = hist_data[probe]
+        if probe == 'NNXo':
+            xpos = 0.1
+        else:
+            xpos = -0.1
+        # Get unique regions and layers
+        regions = list(set([ch['region'] for ch in channels.values()]))
+        layers = list(set([ch['layer'] for ch in channels.values()]))
+        
+        # Plot each channel
+        for ch_num, ch_data in channels.items():
+            y_pos = int(ch_num)  # Channel number determines y position
+            # Color by layer
+            if ch_data['layer'] == '2/3':
+                color = acr.utils.pal_full[0]
+            elif ch_data['layer'] == '4':
+                color = acr.utils.pal_full[1] 
+            elif ch_data['layer'] == '5':
+                color = acr.utils.pal_full[2]
+            elif ch_data['layer'] == '6a':
+                color = acr.utils.pal_full[3]
+            elif ch_data['layer'] == '6b':
+                color = acr.utils.pal_full[4]
+            elif ch_data['layer'] == '1':
+                color = acr.utils.pal_full[5]
+            elif ch_data['layer'] == '7':
+                color = 'black'
+            else:
+                color = 'gray'
+                
+            ax.scatter(xpos, y_pos, c=color, s=300)
+            
+        # Customize plot
+        ax.set_title(f'{subject} Channel Locations')
+        ax.set_ylim(17, 0)  # Inverted y-axis
+        ax.set_xlim(-0.5, 0.5)
+        ax.set_yticks(range(1,17))
+        ax.set_xticks([-0.25, 0.25])
+        ax.set_xticklabels(['NNXr', 'NNXo'])
+        ax.set_ylabel('Channel Number')
+        
+    # Add legend
+    legend_elements = [
+        plt.scatter([], [], c=acr.utils.pal_full[0], s=300, label='Layer 2/3'),
+        plt.scatter([], [], c=acr.utils.pal_full[1], s=300, label='Layer 4'),
+        plt.scatter([], [], c=acr.utils.pal_full[2], s=300, label='Layer 5'),
+        plt.scatter([], [], c=acr.utils.pal_full[3], s=300, label='Layer 6a'),
+        plt.scatter([], [], c=acr.utils.pal_full[4], s=300, label='Layer 6b'),
+        plt.scatter([], [], c=acr.utils.pal_full[5], s=300, label='Layer 1'),
+        plt.scatter([], [], c='black', s=300, label='White Matter'),
+        plt.scatter([], [], c='gray', s=300, label='Unknown')
+    ]
+    ax.legend(handles=legend_elements, loc='center right', bbox_to_anchor=(1.3, 0.5))
+    
+    plt.tight_layout()
+    return fig
 
 def psd_comp_quantal(psd1, psd2, keys, ax):
     df = pd.concat(
@@ -374,7 +458,7 @@ def bp_fan_plot(rebound_df, subject=None, exp=None, title_add=None, ylim=None):
     HUEORD = ['NNXr', 'NNXo']
     PAL = [NNXR_GRAY, NNXO_BLUE]
     
-    plt.style.use('/home/kdriessen/gh_master/kdephys/kdephys/plot/acr_plots_dark.mplstyle')
+    #plt.style.use('/home/kdriessen/gh_master/kdephys/kdephys/plot/acr_plots_dark.mplstyle')
     plt.rcParams['axes.spines.right'] = True
     plt.rcParams['axes.spines.top'] = True
     
@@ -513,3 +597,132 @@ def fr_fan_plot_quantile(normdf, subject=None, exp=None, title_add=None):
         ax[0].set_ylim(ylim_min, ylim_max)
     plt.show()
     return g
+
+def _gen_box_onesided(data1, data2, colors=[NNXR_GRAY, SOM_BLUE], ax=None, fsize=(4, 6), alpha=0.8, lineplot_width=4.5, one_sided=False, means=True, mean_color='gold', mean_linewidth=3.5, mean_linestyle='--', mean_dashes=(1.2, 1.2), widths=0.06, xlim=(0.35, 0.7)):
+    if ax is None:
+        f, ax = plt.subplots(1, 1, figsize=fsize)
+    else:
+        f = ax.get_figure()
+
+    # boxplot - only NNXo
+    box_o = ax.boxplot(data2, positions=[0.65], widths=widths, patch_artist=True, capprops=dict(color='none', linewidth=0), whiskerprops=dict(color='black', linewidth=4), medianprops=dict(color='k', linewidth=4, zorder=101), showfliers=False, showmeans=means, meanline=True, meanprops=dict(color=mean_color, linestyle=mean_linestyle, linewidth=mean_linewidth, dashes=mean_dashes, zorder=200))
+    box_o['boxes'][0].set_facecolor(colors[1])
+    box_o['boxes'][0].set_alpha(alpha)
+    box_o['boxes'][0].set_linewidth(0)
+    box_o['boxes'][0].set_zorder(100)
+
+    # line plots
+    for i in range(len(data1)):
+        ax.plot([0.4, 0.6], [data1[i], data2[i]], color=colors[1], alpha=0.85, linewidth=lineplot_width, solid_capstyle='round', solid_joinstyle='round')
+
+    # scatter plots for individual points
+    for i in range(len(data1)):
+        ax.scatter(0.4, data1[i], color=colors[0], alpha=0.7, s=110, zorder=202)
+        ax.scatter(0.6, data2[i], color=colors[1], alpha=0.7, s=110, zorder=203)
+    ax.set_xlim(xlim)
+    ax.set_xticks([0.4, 0.65])
+    return f, ax
+
+def gen_paired_boxplot(data1, data2, colors=[NNXR_GRAY, SOM_BLUE], ax=None, fsize=(3.5, 4), lineplot_width=4.5, one_sided=False, alphas=[0.8, 0.8], means=True, mean_color='gold', mean_linewidth=3.5, mean_linestyle='--', mean_dashes=(1.2, 1.2), widths=0.06, xlim=(0.3, 0.7)):
+    
+    if one_sided:
+        return _gen_box_onesided(data1, data2, colors, ax, fsize, alphas[1], lineplot_width, one_sided, means, mean_color, mean_linewidth, mean_linestyle, mean_dashes, widths)
+    
+    if ax is None:
+        f, ax = plt.subplots(1, 1, figsize=fsize)
+    else:
+        f = ax.get_figure()
+    
+    
+    # boxplots
+    box = ax.boxplot(data1, positions=[0.35], widths=widths, patch_artist=True, capprops=dict(color='none', linewidth=0), whiskerprops=dict(color='k', linewidth=4), medianprops=dict(color='k', linewidth=4, zorder=101), showfliers=False, showmeans=means, meanline=True, meanprops=dict(color=mean_color, linestyle=mean_linestyle, linewidth=mean_linewidth, dashes=mean_dashes, zorder=200))
+
+    box['boxes'][0].set_facecolor(colors[0])
+    box['boxes'][0].set_alpha(alphas[0])
+    box['boxes'][0].set_linewidth(0)
+    box['boxes'][0].set_zorder(100)
+
+    box_o = ax.boxplot(data2, positions=[0.65], widths=widths, patch_artist=True, capprops=dict(color='none', linewidth=0), whiskerprops=dict(color='black', linewidth=4), medianprops=dict(color='k', linewidth=4, zorder=101), showfliers=False, showmeans=means, meanline=True, meanprops=dict(color=mean_color, linestyle=mean_linestyle, linewidth=mean_linewidth, dashes=mean_dashes, zorder=200))
+    box_o['boxes'][0].set_facecolor(colors[1])
+    box_o['boxes'][0].set_alpha(alphas[1])
+    box_o['boxes'][0].set_linewidth(0)
+    box_o['boxes'][0].set_zorder(100)
+
+    # line plots
+    for i in range(len(data1)):
+        ax.plot([0.40, 0.6], [data1[i], data2[i]], color=colors[1], alpha=0.85, linewidth=4.5, solid_capstyle='round', solid_joinstyle='round')
+
+    # scatter plots for individual points
+    for i in range(len(data1)):
+        ax.scatter(0.4, data1[i], color=colors[0], alpha=0.7, s=110, zorder=202)
+        ax.scatter(0.6, data2[i], color=colors[1], alpha=0.7, s=110, zorder=203)
+    ax.set_xlim(xlim)
+    return f, ax
+
+def add_boxplot(ax, data, positions=[0.5], widths=0.06, color=NNXR_GRAY, means=True, mean_color='gold', mean_linewidth=3.5, mean_linestyle='--', mean_dashes=(1.2, 1.2), alpha=0.85):
+    box = ax.boxplot(data, positions=positions, widths=widths, showfliers=False, patch_artist=True, capprops=dict(color='none', linewidth=0), whiskerprops=dict(color='k', linewidth=3), medianprops=dict(color='k', linewidth=3, zorder=101), showmeans=means, meanline=True, meanprops=dict(color=mean_color, linestyle=mean_linestyle, linewidth=mean_linewidth, dashes=mean_dashes, zorder=200))
+    box['boxes'][0].set_facecolor(color)
+    box['boxes'][0].set_alpha(alpha)
+    box['boxes'][0].set_linewidth(0)
+    box['boxes'][0].set_zorder(100)
+    return ax, box
+
+
+def add_data_points(ax, data, x_pos=0.4, color=NNXR_GRAY, alpha=0.8, s=110, zorder=202):
+    for i in range(len(data)):
+        ax.scatter(x_pos, data[i], color=color, alpha=alpha, s=s, zorder=zorder)
+    return ax
+
+
+def add_paired_lines(ax, data1, data2, x1, x2, colors=[NNXR_GRAY, SOM_BLUE], alpha=0.85, linewidth=4.5):
+    for i in range(len(data1)):
+        ax.plot([x1, x2], [data1[i], data2[i]], color=colors[1], alpha=alpha, linewidth=linewidth, solid_capstyle='round', solid_joinstyle='round')
+    return ax
+
+def add_paired_scatter_points(ax, data1, data2, x1, x2, colors=[NNXR_GRAY, SOM_BLUE]):
+    # scatter plots for individual points
+    for i in range(len(data1)):
+        ax.scatter(x1, data1[i], color=colors[0], alpha=0.7, s=110, zorder=202)
+        ax.scatter(x2, data2[i], color=colors[1], alpha=0.7, s=110, zorder=203)
+    return ax
+
+
+def triple_boxplot(left, right, colors=[NNXR_GRAY, SOM_BLUE], ax=None, fsize=(6, 4), lineplot_width=4.5, one_sided=False, alphas=[0.8, 0.8], means=True, mean_color='gold', mean_linewidth=3.5, mean_linestyle='--', mean_dashes=(1.2, 1.2), widths=0.06, xlim=(0.25, 0.75)):
+    
+    if ax is None:
+        f, ax = plt.subplots(1, 1, figsize=fsize)
+    else:
+        f = ax.get_figure()
+    
+    
+    # boxplots
+    box = ax.boxplot(left, positions=[0.3], widths=widths, patch_artist=True, capprops=dict(color='none', linewidth=0), whiskerprops=dict(color='k', linewidth=4), medianprops=dict(color='k', linewidth=4, zorder=101), showfliers=False, showmeans=means, meanline=True, meanprops=dict(color=mean_color, linestyle=mean_linestyle, linewidth=mean_linewidth, dashes=mean_dashes, zorder=200))
+
+    box['boxes'][0].set_facecolor(colors[0])
+    box['boxes'][0].set_alpha(alphas[0])
+    box['boxes'][0].set_linewidth(0)
+    box['boxes'][0].set_zorder(100)
+
+    box_o = ax.boxplot(right, positions=[0.7], widths=widths, patch_artist=True, capprops=dict(color='none', linewidth=0), whiskerprops=dict(color='black', linewidth=4), medianprops=dict(color='k', linewidth=4, zorder=101), showfliers=False, showmeans=means, meanline=True, meanprops=dict(color=mean_color, linestyle=mean_linestyle, linewidth=mean_linewidth, dashes=mean_dashes, zorder=200))
+    box_o['boxes'][0].set_facecolor(colors[1])
+    box_o['boxes'][0].set_alpha(alphas[1])
+    box_o['boxes'][0].set_linewidth(0)
+    box_o['boxes'][0].set_zorder(100)
+
+    # line plots
+    left_mids = np.ones_like(left)
+    for i in range(len(left)):
+        ax.plot([0.50, 0.35], [left_mids[i], left[i]], color=colors[0], alpha=alphas[0], linewidth=4.5, solid_capstyle='round', solid_joinstyle='round')
+    right_mids = np.ones_like(right)
+    for i in range(len(right)):
+        ax.plot([0.50, 0.65], [right_mids[i], right[i]], color=colors[1], alpha=alphas[1], linewidth=4.5, solid_capstyle='round', solid_joinstyle='round')
+
+    # scatter plots for individual points
+    for i in range(len(left)):
+        ax.scatter(0.5, left_mids[i], color='gray', alpha=0.7, s=110, zorder=202)
+        ax.scatter(0.35, left[i], color=colors[0], alpha=0.7, s=110, zorder=203)
+    for i in range(len(right)):
+        ax.scatter(0.5, right_mids[i], color='gray', alpha=0.7, s=110, zorder=204)
+        ax.scatter(0.65, right[i], color=colors[1], alpha=0.7, s=110, zorder=205)
+    ax.set_xlim(xlim)
+    return f, ax

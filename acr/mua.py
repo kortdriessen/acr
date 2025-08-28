@@ -37,6 +37,19 @@ def check_for_preprocessed_mua_data(subject, recording, probe):
                 return True
     return False
 
+def check_mua_prepro_full_exp(subject, exp, probes=['NNXo', 'NNXr']):
+    for probe in probes:
+        try:
+            recs, starts, durations = acr.units.get_time_info(subject, f'{exp}-{probe}')
+        except:
+            return False
+        for rec in recs:
+            exists = acr.mua.check_for_preprocessed_mua_data(subject, rec, probe)
+            if exists == False:
+                return False
+    # if all of this passes without returning False, then we can return True
+    return True
+
 def _interp_mua_data(data, chans_to_interp, sigma_um=50, p=1.3):
     return sp.interpolate_bad_channels(data, chans_to_interp, sigma_um=sigma_um, p=p)
 
@@ -441,13 +454,13 @@ def add_states_to_df(df, h):
     df = df.with_columns(state=pl.Series(state_array.astype(str)))
     return df
 
-def get_dynamic_fr_df(mua_df, every=60, closed='left'):
+def get_dynamic_fr_df(mua_df, every=60, closed='left', by=['probe', 'channel']):
     frt = mua_df.groupby_dynamic(
             "datetime",
             every=f'{every}s',
             start_by="datapoint",
             closed=closed,
-            by=["probe", "channel"],
+            by=by,
         ).agg(pl.col("amplitude").count().alias("count"))
     return frt.with_columns(fr = pl.col('count')/every)
 
@@ -479,7 +492,7 @@ def _check_concat_df_exists(subject, exp, probe):
     else:
         return False
     
-def detect_peaks_on_full_concat_recording(subject, exp, njobs=128, probes=['NNXr', 'NNXo'], overwrite=False):
+def detect_peaks_on_full_concat_recording(subject, exp, njobs=112, probes=['NNXr', 'NNXo'], overwrite=False):
     for probe in probes:
         if _check_concat_df_exists(subject, exp, probe) and overwrite==False:
             print(f'Peaks already detected for {subject}--{exp}--{probe}, set overwrite=True to overwrite')
@@ -521,7 +534,7 @@ def detect_peaks_on_full_concat_recording(subject, exp, njobs=128, probes=['NNXr
         peaks_df.to_parquet(save_path, version='2.6')
     return
 
-def load_concat_peaks_df(subject, exp, probes=['NNXo', 'NNXr']):
+def load_concat_peaks_df(subject, exp, probes=['NNXo', 'NNXr'], segs=False):
     concat_dfs = []
     for probe in probes:
         save_folder = f'{raw_data_root}mua_data/{subject}/si_peak_dfs/concat_dfs'
@@ -530,7 +543,10 @@ def load_concat_peaks_df(subject, exp, probes=['NNXo', 'NNXr']):
         df = df.with_columns(channel=pl.col('channel') + 1) #because initially the channel index was zero-based.
         df = df.with_columns(negchan=pl.col('channel')*-1)
         concat_dfs.append(df)
-    return pl.concat(concat_dfs)
+    mua = pl.concat(concat_dfs)
+    if segs:
+        mua = merge_segment_dfs_to_full_mua(subject, exp, mua)
+    return mua
 
 def full_mua_pipeline_for_subject(subject, list_of_exps=None, df_version='concat', interpol=False, overwrite=False, detect_jobs=112):
     if list_of_exps == None:
@@ -539,7 +555,7 @@ def full_mua_pipeline_for_subject(subject, list_of_exps=None, df_version='concat
     for exp in list_of_exps:
         exp_recs = acr.info_pipeline.get_exp_recs(subject, exp)
         # 1. Preprocess the MUA data
-        preprocess_data_for_mua(subject, exp, overwrite=overwrite, interpol=interpol, njobs=16)
+        preprocess_data_for_mua(subject, exp, overwrite=overwrite, interpol=interpol, njobs=32)
         
         # 2. Run the detection on the preprocessed data, either by recording, or on the concatenated data, or both
         if df_version == 'concat':
@@ -564,7 +580,7 @@ def save_interpolated_mua_data(data, subject, recording, probe):
     
     #First we temporarily save the interpolated data
     temp_save_path = f'{save_folder}/TEMP--{subject}--{recording}--{probe}.zarr'
-    data.save(folder=temp_save_path, overwrite=False, format="zarr", n_jobs=16, chunk_duration='100s', progress_bar=True)
+    data.save(folder=temp_save_path, overwrite=False, format="zarr", n_jobs=64, chunk_duration='100s', progress_bar=True)
     
     #Now we remove the original (uninterpolated) data
     os.system(f'rm -rf {save_path}')
@@ -594,6 +610,7 @@ def interpol_and_resave_mua_data(subject, exp, probes=['NNXo', 'NNXr'], redo=Fal
             acr.info_pipeline.write_interpol_done(subject, rec, probe, chans=interped_chans, version='ap')
     return
 
+
 def filter_on_amplitude(df, group_cols=['probe', 'channel'], q=0.2):
     # Group by the specified columns and calculate the 80th percentile
     if 'abs_amp' not in df.columns:
@@ -612,3 +629,21 @@ def filter_on_amplitude(df, group_cols=['probe', 'channel'], q=0.2):
     result = result.filter(pl.col('abs_amp') >= pl.col('threshold')).select(df.columns)
     
     return result
+
+def merge_segment_dfs_to_full_mua(subject, exp, mua):
+    seg_df_dir = f'{acr.utils.raw_data_root}mua_data/{subject}/seg_dfs'
+    segs = []
+    for f in os.listdir(seg_df_dir):
+        if f.endswith('.parquet'):
+            if f'{exp}--' in f:
+                df = pl.read_parquet(f'{seg_df_dir}/{f}')
+                df = df.with_columns(channel=pl.col('channel') + 1) #because initially the channel index was zero-based.
+                df = df.with_columns(negchan=pl.col('channel')*-1)
+                segs.append(df)
+    seg_mua = pl.concat(segs)
+    seg_start = seg_mua['datetime'].to_pandas().min()
+    seg_end = seg_mua['datetime'].to_pandas().max()
+    mua_cleaned = mua.filter(~(pl.col('datetime').is_between(seg_start, seg_end)))
+    mua_new = pl.concat([mua_cleaned, seg_mua])
+    mua_new = mua_new.sort('datetime')
+    return mua_new

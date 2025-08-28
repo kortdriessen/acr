@@ -18,7 +18,7 @@ axes.facecolor: FFFFFF
 # Axes Title styling
 axes.titlelocation: left        # alignment of the title: {left, right, center}
 axes.titlepad: 6               # pad between axes and title in points
-axes.titlesize: 34              # font size of the axes title
+axes.titlesize: 26              # font size of the axes title
 axes.titleweight: normal          # font weight of title
 
 # Grid Properties
@@ -51,7 +51,7 @@ figure.figsize: 10, 10          # figure size in inches
 figure.dpi: 50                 # figure dots per inch
 
 # Setting font sizes and spacing
-axes.labelsize: 34              # font size of the x and y labels
+axes.labelsize: 26              # font size of the x and y labels
 
 # ---------------------- All tick settings ----------------------
 
@@ -71,11 +71,11 @@ xtick.minor.size: 5             # minor tick size in points
 ytick.minor.size: 5
 
 # ---------------------- All tick label settings ----------------------
-xtick.labelbottom: False
-ytick.labelleft: False
-xtick.labelsize: 0             # font size of the x tick labels      
-ytick.labelsize: 0             # font size of the y tick labels
-font.size: 14                   # default font size for text, given in points.
+xtick.labelbottom: True
+ytick.labelleft: True
+xtick.labelsize: 22             # font size of the x tick labels      
+ytick.labelsize: 22             # font size of the y tick labels
+font.size: 20                   # default font size for text, given in points.
 xtick.major.pad: 8              # distance to major tick label in points  
 ytick.major.pad: 8
 

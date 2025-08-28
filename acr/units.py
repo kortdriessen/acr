@@ -142,7 +142,7 @@ def load_raw_info_df_util(subject, sort_id):
     info_df : pd.DataFrame
         info dataframe
     """
-    probe = sort_id.split("-")[-1]
+    probe = sort_id.split("-")[1] # TODO: this is a very bad hacky way to do this, will cause lots of errors depending on the sort_id
     assert probe == "NNXr" or probe == "NNXo"
     path = sorting_path(subject, sort_id)
     info_path = os.path.join(path, "cluster_info.tsv")
@@ -281,6 +281,24 @@ def info_to_spike_df(spike_df, info, sort_id):
 
 
 def get_time_info(subject, sort_id):
+    """Returns: RECORDINGS, START_TIMES, DURATIONS
+
+    Parameters
+    ----------
+    subject : str
+        subject name
+    sort_id : str
+        sort id
+
+    Returns
+    -------
+    recordings : list
+        list of recordings
+    start_times : list
+        list of start times
+    durations : list
+        list of durations
+    """
     ss = pd.read_excel("/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/spikesorting.xlsx")
     ss_narrowed = ss.loc[np.logical_and(ss.subject == subject, ss.sort_id == sort_id)]
     if type(ss_narrowed.recording_end_times.values[0]) == int:
@@ -295,15 +313,15 @@ def get_time_info(subject, sort_id):
     times_new = []
 
     # TODO fix this!!
-    probe = sort_id.split("-")[-1]
-    assert "NNX" in probe
+    #probe = sort_id.split("-")[-1]
+    #assert "NNX" in probe
 
     starts = []
     for t, r in zip(times, recs):
         if t != 0:
             times_new.append(t)
         if t == 0:
-            duration = info[r][f"{probe}-duration"]
+            duration = info[r][f"NNXo-duration"]
             times_new.append(duration)
         starts.append(np.datetime64(info[r]["start"]))
     return recs, starts, times_new
@@ -323,6 +341,16 @@ def assign_recordings_to_spike_df(spike_df, recordings, durations):
     spike_df.loc[spike_df.time > total_duration, "recording"] = recordings[-1]
     return spike_df
 
+
+def assign_datetimes_to_seg_df(spike_df, start_time):
+    dti = pd.DatetimeIndex([])
+    times = spike_df.time.values
+    assert np.min(times) == times[0]
+    timedeltas = pd.to_timedelta(times, unit="s")
+    datetimes = start_time + timedeltas
+    dti = pd.DatetimeIndex(datetimes)
+    spike_df["datetime"] = dti
+    return spike_df
 
 def assign_datetimes_to_spike_df(spike_df, recordings, start_times):
     dti = pd.DatetimeIndex([])

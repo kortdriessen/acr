@@ -15,7 +15,7 @@ from benedict import benedict
 import datetime
 import pickle
 from acr.utils import raw_data_root, materials_root, opto_loc_root
-
+import polars as pl
 
 def load_rec_quality():
     path = f"{materials_root}master_rec_quality.xlsx"
@@ -412,7 +412,7 @@ def redo_subject_info(subject, recs=[]):
     return
 
 
-def preprocess_and_save_recording(subject, rec, fs_target=400):
+def preprocess_and_save_recording(subject, rec, fs_target=400, stores=None, interpol=False):
     """
     * Requires an updated subject_info file *
     Preprocesses (downsample via decimate) and saves a single recording as xarray object.
@@ -420,15 +420,26 @@ def preprocess_and_save_recording(subject, rec, fs_target=400):
     Channels are specified in the subject_info.yml file.
     Stores to use are defined by raw_stores in the subject_info.yml file.
     """
-
+    already_done = current_processed_recordings(subject)
+    if rec in already_done:
+        if stores is None:
+            print(f"Recording {rec} already processed. Skipping...")
+            return
+        else:
+            print(f"Recording {rec} already processed, but proceeding with specified stores") 
     path = f"{materials_root}{subject}/subject_info.yml"
     with open(path) as f:
         info = yaml.load(f, Loader=yaml.FullLoader)
     raw_data = {}
     path = info["paths"][rec]
     t2 = info["rec_times"][rec]["duration"]
+    
+    if stores is None:
+        stores = info["raw_stores"]
+    else:
+        stores = stores
 
-    for store in info["raw_stores"]:
+    for store in stores:
         raw_data[rec + "-" + store] = kx.io.get_data(
             path, store, channel=info["channels"][store], t1=0, t2=t2
         )
@@ -451,18 +462,22 @@ def preprocess_and_save_recording(subject, rec, fs_target=400):
     save_root = f"{opto_loc_root}{subject}/"
     for key in dec_data.keys():
         print("saving: " + key)
-        save_path = save_root + key + ".nc"
-        kx.io.save_dataarray(dec_data[key], save_path)
+        probe = key.split("-")[-1]
+        if interpol == True:
+            acr.io.interpol_and_save_fp_data(subject, rec, probe, redo=False, data=dec_data[key], new_path=False)
+        else:
+            save_path = save_root + key + ".nc"
+            kx.io.save_dataarray(dec_data[key], save_path)
     return
 
 
-def preprocess_and_save_all_recordings(subject, fs_target=400):
+def preprocess_and_save_all_recordings(subject, fs_target=400, interpol=False):
     all_recs = get_impt_recs(subject)
     already_done = current_processed_recordings(subject)
     for rec in all_recs:
         if rec not in already_done:
             print("preprocessing: " + rec)
-            preprocess_and_save_recording(subject, rec, fs_target=fs_target)
+            preprocess_and_save_recording(subject, rec, fs_target=fs_target, interpol=interpol)
     return
 
 
@@ -1057,3 +1072,54 @@ def read_interpol_done(subject, rec, probe, version=None):
         content = file.read().strip('[]').replace(' ', '')
         chans = [int(chan) for chan in content.split(',') if chan]
     return chans
+
+def load_sub_infra_borders():
+    path = '/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/sub_infra_borders.yaml'
+    with open(path, 'r') as f:
+        sinf = yaml.safe_load(f)
+    return sinf
+
+def _get_sub_inf_only_loc_df(subject, probe, border, method='under', chan_col='channel', label_col='label'):
+    if method == 'under':
+        infra_chans = np.arange(1, border)
+        sub_chans = np.arange(border, 17)
+    elif method == 'over':
+        infra_chans = np.arange(1, border+1)
+        sub_chans = np.arange(border+1, 17)
+    infra_labels = ['infragranular']*len(infra_chans)
+    sub_labels = ['subgranular']*len(sub_chans)
+    chans = np.concatenate([infra_chans, sub_chans])
+    labels = np.concatenate([infra_labels, sub_labels])
+    loc_df = pl.DataFrame({'subject': subject, 'probe': probe, chan_col: chans, label_col: labels})
+    return loc_df
+
+def label_df_sub_infra(df, chan_col='channel', label_col='label', join_on=['subject', 'probe', 'channel']):
+    if type(df) == pd.DataFrame:
+        df = pl.from_pandas(df) 
+    sinf = load_sub_infra_borders()
+    loc_dfs = []
+    for subject in df['subject'].unique():
+        for probe in ['NNXr', 'NNXo']:
+            prb_gran_upper = sinf[subject][probe]['gran_upper']
+            prb_gran_lower = sinf[subject][probe]['gran_lower'] 
+            
+            if prb_gran_upper == prb_gran_lower:
+                loc_dfs.append(_get_sub_inf_only_loc_df(subject, probe, prb_gran_upper, method='under', chan_col=chan_col, label_col=label_col))
+                continue
+            else:
+                infra_chans = np.arange(1, prb_gran_upper)
+                gran_chans = np.arange(prb_gran_upper, prb_gran_lower+1)
+                sub_chans = np.arange(prb_gran_lower+1, 17)
+                infra_labels = ['infragranular']*len(infra_chans)
+                gran_labels = ['granular']*len(gran_chans)
+                sub_labels = ['subgranular']*len(sub_chans)
+
+                chans = np.concatenate([infra_chans, gran_chans, sub_chans])
+                labels = np.concatenate([infra_labels, gran_labels, sub_labels])
+                loc_df = pl.DataFrame({'subject': subject, 'probe': probe, chan_col: chans, label_col: labels})
+                loc_dfs.append(loc_df)
+    all_locations = pl.concat(loc_dfs)
+    if 'store' in df.columns:
+        all_locations = all_locations.rename({'probe': 'store'})
+    df = df.join(all_locations, on=join_on, how='left')
+    return df

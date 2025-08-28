@@ -19,6 +19,10 @@ setup(
         "python-benedict",
         "statsmodels",
         "XlsxWriter",
-    ],  # needs kdephys, on_off detection
+        "dask",
+        "dask-image",
+        "xhistogram",
+        "pingouin"
+    ],  # needs kdephys
     zip_safe=False,
 )

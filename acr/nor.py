@@ -10,28 +10,28 @@ import numpy as np
 plt.style.use('fast')
 
 stim_subjects = [
-    #"NOR_37", # had to exclude because acquisition was greater than 2/3 on one side 
+    "NOR_37", # had to exclude because acquisition was greater than 2/3 on one side 
     #"NOR_38", had to exclude, bad ferrules so stim didn't work 
     "NOR_39", 
     "NOR_40", 
     "NOR_41", 
-    #"NOR_42", # had to exclude because acquisition was greater than 2/3 on one side 
-    #"NOR_44", # had to exclude because acquisition was greater than 2/3 on one side 
-    #"NOR_45", # had to exclude because acquisition was greater than 2/3 on one side 
+    "NOR_42", # had to exclude because acquisition was greater than 2/3 on one side 
+    "NOR_44", # had to exclude because acquisition was greater than 2/3 on one side 
+    "NOR_45", # had to exclude because acquisition was greater than 2/3 on one side 
     #"NOR_46", excluding because ferrule was loose during stim 
     "NOR_47", 
     "NOR_48", 
     "NOR_49", 
     "NOR_50", 
-    #"NOR_51", # had to exclude because acquisition was greater than 2/3 on one side 
-    #"NOR_53", # had to exclude because acquisition was greater than 2/3 on one side 
+    "NOR_51", # had to exclude because acquisition was greater than 2/3 on one side 
+    "NOR_53", # had to exclude because acquisition was greater than 2/3 on one side 
     "NOR_54",
 ]
 
 
 sd_subjects = [
     "NOR_11",
-    #"NOR_12",  # excluded because acquisition was greater than 2/3 on one side
+    "NOR_12",  # excluded because acquisition was greater than 2/3 on one side
     "NOR_15",
     "NOR_16",
     "NOR_19",
@@ -49,18 +49,18 @@ sd_subjects = [
 sleep_subjects = [
     "NOR_9",
     "NOR_10",
-    "NOR_13",
-    #"NOR_14", # excluded because < 50% sleep
+    #"NOR_13", # no-sleeper
+    "NOR_14", 
     "NOR_17",
     "NOR_18",
     "NOR_21",
     "NOR_22",
     "NOR_25",
-    #"NOR_26", # excluded because acquisition was greater than 2/3 on one side 
-    #"NOR_29", # excluded because < 50% sleep
+    "NOR_26", # excluded because acquisition was greater than 2/3 on one side
+    #"NOR_29", # no-sleeper
     "NOR_30",
-    #"NOR_33", # excluded because < 50% sleep
-    #"NOR_34", # excluded because < 50% sleep 
+    #"NOR_33", # no-sleeper
+    #"NOR_34", # no-sleeper
 ]
 
 def get_all_subjects():
@@ -131,9 +131,11 @@ def load_nor_info():
         nor_info = yaml.safe_load(f)
     return nor_info
 
-def clean_full_df(df):
+def clean_full_df(df, nodes=None):
     new_dfs = []
-    for node in all_nodes:
+    if nodes == None:
+        nodes = all_nodes
+    for node in nodes:
         new_dfs.append(clean_df(df.loc[:, df.loc[0] == node]))
     return pd.concat(new_dfs)
     
@@ -424,8 +426,6 @@ def threshold_post_dep_sleep(subject, smoothing_sigma=2, quantile=0.75, epoc_dur
     acqday_end = acqday_start + pd.Timedelta('11.5h')
     dfday = df.loc[(df['datetime']>acqday_start) & (df['datetime']<acqday_end)]
     box_ts = pd.Timestamp(f'{acq_day} {box_time}')
-    
-    
     
     min_sleep_start = box_ts + pd.Timedelta('40min')
     sleep_start_real = dfday.query('datetime > @min_sleep_start')['datetime'].values.min()

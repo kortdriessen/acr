@@ -47,13 +47,13 @@ def get_pulse_train_times(pulse_ons, pulse_offs, times=False):
         diff = pd.Timedelta(diff)
         if diff.total_seconds() > 5:
             if times == True:
-                train_ons.append(pulse_ons[i + 1])
-                train_offs.append(pulse_offs[i])
+                train_ons.append(pd.Timestamp(pulse_ons[i + 1]))
+                train_offs.append(pd.Timestamp(pulse_offs[i]))
             else:
                 train_ons.append(i + 1)
                 train_offs.append(i)
     if times == True:
-        train_offs.append(pulse_offs[len(pulse_ons) - 1])
+        train_offs.append(pd.Timestamp(pulse_offs[len(pulse_ons) - 1]))
     else:
         train_offs.append(len(pulse_ons) - 1)
     return train_ons, train_offs
@@ -297,7 +297,7 @@ def get_all_stim_info(subject, exp, stim_store=None):
     stim_start, stim_end = acr.stim.stim_bookends(subject, exp)
     pon, poff = get_individual_pulse_times(subject, exp, store=stim_store)
     ton, toff = acr.stim.get_pulse_train_times(pon, poff)
-    return stim_start, stim_end, pon, poff, ton, toff
+    return stim_start, stim_end, pon, poff, pd.to_datetime(ton), pd.to_datetime(toff)
 
 def assign_train_times_to_frdf(tons, toffs, frdf, pretrain=True):
     frdf = frdf.with_columns(stim_train=pl.lit(None))

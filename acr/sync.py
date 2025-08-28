@@ -3,478 +3,356 @@ import numpy as np
 import polars as pl
 import acr
 import pickle
+from numba import njit, prange
+from typing import List, Tuple
 
-def _check_for_all_chans_in_mask_bout(all_chans, bout_df):
-    bout_chans = bout_df['channel'].unique()
-    return np.all([ch in bout_chans for ch in all_chans])
+def select_data_around_times(times, data, buffer=0.05):
+    """returns a list of arrays that are [buffer*fs*2 x n_channels], each element centered around one of the times
 
-
-
-def compute_channel_off_masks(oodf, hyp_t1, hyp_t2, all_chans, resolution=1e-3):
-    if type(oodf) is pl.DataFrame:
-        oodf = oodf.to_pandas()
-    bout_dur = ( hyp_t2-hyp_t1 ).total_seconds()
-    tds = np.arange(0, bout_dur, resolution)
-    tds = pd.to_timedelta(tds, unit='s')
-    times_to_mask  = tds+hyp_t1
-    channel_masks = {}
-    for ch in all_chans:
-        if ch not in oodf['channel'].unique():
-            channel_masks[ch] = np.zeros(len(times_to_mask), dtype=bool)
-            continue
-        chdf = oodf[oodf['channel']==ch]
-        off_starts = chdf['start_datetime'].values
-        off_ends = chdf['end_datetime'].values
-        start_indices = np.searchsorted(off_starts, times_to_mask, side='right') - 1
-        end_indices = np.searchsorted(off_ends, times_to_mask, side='left')
-        mask = (start_indices==end_indices)
-        channel_masks[ch] = mask
-    return channel_masks, times_to_mask
-
-def get_off_masks_by_bout(oodf, hd):
-    assert len(oodf['probe'].unique())==1, 'Only works for single probe'
-    offs = oodf.offs()
-    bout_off_masks = {}
-    bout_mask_times = {}
-    all_chans = offs['channel'].unique()
-    for cond in hd.keys():
-        bout_off_masks[cond] = {}
-        bout_mask_times[cond] = []
-    for cond in bout_off_masks.keys():
-        hyp = hd[cond]
-        bout_num = 0
-        print(f'Working on {cond}')
-        for bout in hyp.itertuples():
-            bout_num+=1
-            t1 = bout.start_time
-            t2 = bout.end_time
-            bout_offs = offs.oots(t1, t2)
-            masks, mask_times = compute_channel_off_masks(bout_offs, t1, t2, all_chans)
-            bout_off_masks[cond][bout_num] = masks
-            bout_mask_times[cond].append(mask_times)
-    return bout_off_masks, bout_mask_times
-
-def concatenate_mask_times(cond_mask_times):
-    full_mask_times = {}
-    for cond in cond_mask_times.keys():
-        full_mask_times[cond] = np.concatenate(cond_mask_times[cond])
-    return full_mask_times
-
-def concatenate_bout_masks(bomasks):
-    conditions = bomasks.keys()
-    channel_concat_masks = {}
-    for cond in conditions:
-        channel_concat_masks[cond] = {}
-        # concatenate bout masks
-        for bout in bomasks[cond].keys():
-            for channel in bomasks[cond][bout].keys():
-                if channel not in channel_concat_masks[cond].keys():
-                    channel_concat_masks[cond][channel] = []
-                channel_concat_masks[cond][channel].append(bomasks[cond][bout][channel])
-        for channel in channel_concat_masks[cond].keys():
-            channel_concat_masks[cond][channel] = np.concatenate(channel_concat_masks[cond][channel])
-    return channel_concat_masks
-
-
-def process_bout_off_masks_dict(bomasks):
-    relative_overlaps = {}
-    conditions = bomasks.keys()
-    for cond in conditions:
-        # concatenate bout masks
-        channel_concat_masks = {}
-        for bout in bomasks[cond].keys():
-            for channel in bomasks[cond][bout].keys():
-                if channel not in channel_concat_masks.keys():
-                    channel_concat_masks[channel] = []
-                channel_concat_masks[channel].append(bomasks[cond][bout][channel])
-        for channel in channel_concat_masks.keys():
-            channel_concat_masks[channel] = np.concatenate(channel_concat_masks[channel])
-        #overlap masks
-        overlap_masks = {}
-        for comp_channel in channel_concat_masks.keys():
-            overlap_masks[comp_channel] = {}
-            for other_channel in channel_concat_masks.keys():
-                print(f'computing overlap for {comp_channel} relative to {other_channel}')
-                overlap_masks[comp_channel][other_channel] = (channel_concat_masks[comp_channel] & channel_concat_masks[other_channel])
-        
-        # relative overlaps
-        relative_overlaps[cond] = {}
-        for comp_channel in overlap_masks.keys():
-            relative_overlaps[cond][comp_channel] = {}
-            total_off_sum = channel_concat_masks[comp_channel].sum()
-            for other_channel in overlap_masks[comp_channel].keys():
-                shared_off_sum = overlap_masks[comp_channel][other_channel].sum()
-                shared_off_pct = shared_off_sum / total_off_sum
-                relative_overlaps[cond][comp_channel][other_channel] = shared_off_pct
-
-    return relative_overlaps
-
-def compute_overlap_by_channel_distances(rels):
-    channel_distances = {}
-    share_pcts = {}
-    for probe in rels.keys():
-        for cond in rels[probe].keys():
-            for comp_channel in rels[probe][cond].keys():
-                for other_channel in rels[probe][cond][comp_channel].keys():
-                    if rels[probe][cond][comp_channel][other_channel] == 1:
-                        rels[probe][cond][comp_channel][other_channel] = np.nan
-        
-        channel_distances[probe] = {}
-        share_pcts[probe] = {}
-        for cond in rels[probe].keys():
-            channel_distances[probe][cond] = {}
-            share_pcts[probe][cond] = {}
-            for comp_channel in rels[probe][cond].keys():
-                channel_distances[probe][cond][comp_channel] = []
-                share_pcts[probe][cond][comp_channel] = []
-                for other_channel in rels[probe][cond][comp_channel].keys():
-                    channel_distances[probe][cond][comp_channel].append(comp_channel-other_channel)
-                    share_pcts[probe][cond][comp_channel].append(rels[probe][cond][comp_channel][other_channel])
-    master_dvc = pd.DataFrame(columns=['probe', 'condition', 'channel', 'comp_distance', 'share_pct', 'cond'])
-    for probe in channel_distances.keys():
-        for cond in channel_distances[probe].keys():
-            for comp_channel in channel_distances[probe][cond].keys():
-                dvc = pd.DataFrame({'probe': probe, 
-                                    'condition': cond, 
-                                    'channel': comp_channel, 
-                                    'comp_distance': channel_distances[probe][cond][comp_channel], 
-                                    'share_pct': share_pcts[probe][cond][comp_channel], 
-                                    'cond': cond})
-                master_dvc = pd.concat([master_dvc, dvc])
-    master_dvc.dropna(inplace=True)
-    master_dvc['comp_distance_abs'] = master_dvc['comp_distance'].abs()
+    Parameters
+    ----------
+    times : _type_
+        _description_
+    data : xr.Array, dimensions are 'datetime' and 'channel'
+        _description_
+    buffer : float, optional
+        time in seconds on either side of each timepoint in times
+    """
+    total_times = data.datetime.values
+    raw_dat = data.values.T # so shape is nchannels X ntimepoints
+    n_samps = int(round(buffer*data.fs, ndigits=0))
+    timepoint_indices = np.searchsorted(total_times, times)
+    starts = timepoint_indices-n_samps
+    ends = timepoint_indices+n_samps
+    # get all of the samples between each start and end index
+    arrays = [raw_dat[:, s:e] for s, e in zip(starts, ends)]
     
-    return master_dvc
-
-
-
-# Functions Related to ONSET/OFFSET Synchrony
-def find_transitions(channel_data):
-    # Find transitions from False to True (start of OFF period)
-    starts = np.where(np.diff(channel_data.astype(int)) == 1)[0] + 1
+    req_shape = (16, n_samps*2)
+    for i, arr in enumerate(arrays):
+        if arr.shape != req_shape:
+            arrays[i] = np.zeros(req_shape)
+    return np.stack(arrays, axis=2)
     
-    # Find transitions from True to False (end of OFF period)
-    ends = np.where(np.diff(channel_data.astype(int)) == -1)[0]
-    
-    if len(starts) - len(ends) == 1:
-        #add the final index to the ends
-        ends = np.append(ends, len(channel_data))
-    return starts, ends
+def compute_peak_df(peak_array):
+    peak_mean = peak_array.mean(axis=2)
+    off_midpoint = peak_mean.shape[1]/2
+    peak_indices = np.argmax(peak_mean, axis=1)
+    peak_values = peak_mean[np.arange(peak_mean.shape[0]), peak_indices]
+    rel_peak_indices = peak_indices-off_midpoint
+    peak_df = pd.DataFrame({'channel':np.arange(peak_mean.shape[0])+1, 'peak':peak_values, 'peak_position':rel_peak_indices})
+    return peak_df
 
-def get_off_transitions(full_masks):
-    transitions = {}
-    for probe in full_masks.keys():
-        transitions[probe] = {}
-        for condition in full_masks[probe].keys():
-            transitions[probe][condition] = {}
-            mask_array = np.array(list(full_masks[probe][condition].values()))
-            for channel, channel_data in enumerate(mask_array):
-                starts, ends = find_transitions(channel_data)
-                transitions[probe][condition][channel+1] = {'starts': starts, 'ends': ends}
-    return transitions
+def compute_trough_df(fp_array, fs, window_length=15, polyorder=5):
+    middle = int(fp_array.shape[1]/2)
+    
+    fp_mean = fp_array.mean(axis=2)
+    fp_mean = fp_mean[:, middle:]
+    trough_indices = np.argmin(fp_mean, axis=1)
+    trough_values = fp_mean[np.arange(fp_mean.shape[0]), trough_indices]
+    trough_df = pd.DataFrame({'channel':np.arange(fp_mean.shape[0])+1, 'trough':trough_values, 'trough_position':trough_indices})
+    return trough_df
 
-def find_overlapping_offs_slow(ch1_starts, ch1_ends, ch2_starts, ch2_ends):
-    """this is the slower mode, but is technically for sure correct if needed to double check results"""
-    overlaps = []
-    
-    for i, (ch1_start, ch1_end) in enumerate(zip(ch1_starts, ch1_ends)):
-        for j, (ch2_start, ch2_end) in enumerate(zip(ch2_starts, ch2_ends)):
-            # Check for overlap
-            if ch1_start < ch2_end and ch2_start < ch1_end:
-                overlaps.append((i, j))
-            
-            # If we've passed the end of the current ch1 OFF period, move to next
-            if ch2_start > ch1_end:
-                break
-    
-    return overlaps
+def select_data_for_peaks(start_times, durations, data, buffer=0.05):
+    """returns a list of arrays that are [buffer*fs*2 x n_channels], each element centered around one of the times
 
-def find_overlapping_offs(ch1_starts, ch1_ends, ch2_starts, ch2_ends):
-    # if channel-1 is shorter than channel-2, we swap them
-    if len(ch1_starts) < len(ch2_starts):
-        placehold_starts = ch1_starts.copy()
-        placehold_ends = ch1_ends.copy()
-        ch1_starts, ch1_ends = ch2_starts, ch2_ends
-        ch2_starts, ch2_ends = placehold_starts, placehold_ends
+    Parameters
+    ----------
+    times : _type_
+        _description_
+    data : xr.Array, dimensions are 'datetime' and 'channel'
+        _description_
+    buffer : float, optional
+        time in seconds on either side of each timepoint in times
+    """
+    total_times = data.datetime.values
+    raw_dat = data.values.T # so shape is nchannels X ntimepoints
+    mid_durs = durations/2
+    peak_samps = np.array([int(round(mid_dur*data.fs, ndigits=0)) for mid_dur in mid_durs])
+    buffer_samps = int(round(buffer*data.fs, ndigits=0))
+    start_time_indices = np.searchsorted(total_times, start_times)
     
-    overlaps = []
+    peak_indices = start_time_indices+peak_samps
+    
+    starts = peak_indices-buffer_samps
+    ends = peak_indices+buffer_samps
+    
+    # get all of the samples between each start and end index
+    arrays = [raw_dat[:, s:e] for s, e in zip(starts, ends)]
+    req_shape = (16, buffer_samps*2)
+    for i, arr in enumerate(arrays):
+        if arr.shape != req_shape:
+            arrays[i] = np.zeros(req_shape)
+    return np.stack(arrays, axis=2)
+
+def compute_slope_df(fp_array, fs, find='min', window_length=15, polyorder=5, search_buffer=10):
+    fp_mean = fp_array.mean(axis=2)
+    slopes = []
+    for ch in range(fp_mean.shape[0]):
+        slopes.append(acr.fp.compute_instantaneous_slope_savgol(fp_mean[ch, :], sampling_rate=fs, window_length=window_length, polyorder=polyorder))
+    slopes_array = np.array(slopes)
+    middle = int(fp_array.shape[1]/2)
+    range_start = middle-search_buffer
+    range_end = middle+search_buffer
+    if find == 'min':
+        extrema = np.argmin(slopes_array[:, range_start:range_end], axis=1)
+        extrema = extrema + range_start
+    elif find == 'max':
+        extrema = np.argmax(slopes_array[:, range_start:range_end], axis=1)
+        extrema = extrema + range_start
+    else:
+        raise ValueError(f"Invalid value for find: {find}")
+    slopes_at_extrema = slopes_array[np.arange(slopes_array.shape[0]), extrema]
+    extrema_rel_to_middle = extrema - middle
+    slope_df = pd.DataFrame({'channel':np.arange(slopes_array.shape[0])+1, 'extrema':extrema, 'extrema_rel_position':extrema_rel_to_middle, 'slope':slopes_at_extrema})
+    return slope_df
+
+def relativize_slope_df_to_condition(slope_df, condition, col_to_rel='slope', on=['subject', 'probe', 'channel']):
+    if f'{col_to_rel}_rel' in slope_df.columns:
+        slope_df = slope_df.drop(columns=[f'{col_to_rel}_rel'])
+    if f'{col_to_rel}_bl' in slope_df.columns:
+        slope_df = slope_df.drop(columns=[f'{col_to_rel}_bl'])
+    bl_df = slope_df.cdn(condition)
+    select_from_bl = on+[col_to_rel]
+    merged = slope_df.merge(bl_df[select_from_bl], on=on, how='inner', suffixes=('', '_bl'))
+    merged[f'{col_to_rel}_rel'] = merged[col_to_rel]/merged[col_to_rel+'_bl']
+    return merged
+
+
+def convert_spike_trains_to_seconds(
+    spike_trains_datetime: List[np.ndarray]) -> List[np.ndarray]:
+    """
+    Given a list of spike-time arrays in np.datetime64[ns], return a list of
+    1D float arrays (seconds since epoch), sorted.
+    """
+    sec_trains = []
+    for train in spike_trains_datetime:
+        # Convert datetime64[ns] to int64 ns, then to float seconds
+        float_seconds = train.astype('datetime64[ns]').astype(np.int64) * 1e-9
+        # Ensure sorted order
+        sec_trains.append(np.sort(float_seconds))
+    return sec_trains
+
+# ---------------------------------------------------------------------
+# 1. Coincidence fraction: no double-count, purely two-pointer, O(Na+Nb)
+# ---------------------------------------------------------------------
+@njit
+def _fraction_with_partner(a: np.ndarray, b: np.ndarray, delta: float) -> float:
+    """
+    Fraction of spikes in 'a' that have ≥1 partner in 'b' within ±delta.
+    Arrays must be sorted; counts each spike at most once (no double-count).
+    """
+    na, nb = a.size, b.size
+    if na == 0 or nb == 0:
+        return 0.0
+
     j = 0
-    ch2_len = len(ch2_starts)
-    
-    for i, (ch1_start, ch1_end) in enumerate(zip(ch1_starts, ch1_ends)):
-        # Skip ch2 OFF periods that end before ch1_start
-        while j < ch2_len-1 and ch2_ends[j] <= ch1_start:
+    coinc = 0
+    for i in range(na):
+        t = a[i]
+
+        # advance j until b[j] >= t - delta
+        while j < nb and b[j] < t - delta:
             j += 1
-        
-        # Check for overlaps
-        k = j
-        while k < ch2_len and ch2_starts[k] < ch1_end:
-            overlaps.append((i, k))
-            k += 1
-        
-        # If we've reached the end of ch2, we're done
-        if j >= ch2_len:
-            break
-    
-    # if we had to swap the channels, we need to reverse the order of the overlaps
-    # check if the placerhold_starts variable exists
-    if 'placehold_starts' in locals():
-        overlaps = [(j, i) for i, j in overlaps]
-    return overlaps
 
-def _find_overlapping_offs(transition_dic):
-    overlapping_offs = {}
-    for channel in transition_dic.keys():
-        overlapping_offs[channel] = {}
-        for other_channel in transition_dic.keys():
-            if channel != other_channel:
-                print(f'comparing {channel} to {other_channel}')
-                overlapping_offs[channel][other_channel] = find_overlapping_offs(transition_dic[channel]['starts'], transition_dic[channel]['ends'], transition_dic[other_channel]['starts'], transition_dic[other_channel]['ends'])
-    return overlapping_offs
-def get_all_overlapping_offs(transitions):
-    overlapping_offs = {}
-    for probe in transitions.keys():
-        overlapping_offs[probe] = {}
-        for condition in transitions[probe].keys():
-            overlapping_offs[probe][condition] = _find_overlapping_offs(transitions[probe][condition])
-    return overlapping_offs
+        # check the closer of b[j-1] and b[j] (if they exist)
+        nearest = delta + 1.0  # larger than delta
+        if j < nb:
+            d = abs(b[j] - t)
+            if d < nearest:
+                nearest = d
+        if j > 0:
+            d = abs(b[j - 1] - t)
+            if d < nearest:
+                nearest = d
 
-def _get_onset_offset_diffs(transitions, overlapping_offs):
-    onset_diffs = {}
-    offset_diffs = {}
-    for channel in transitions.keys():
-        onset_diffs[channel] = {}
-        offset_diffs[channel] = {}
-        ovlp = overlapping_offs[channel]
-        for other_channel in ovlp.keys():
-            onset_diffs[channel][other_channel] = []
-            offset_diffs[channel][other_channel] = []
-            print(f'processing {channel} and {other_channel}')
-            for ov in ovlp[other_channel]:
-                onset_diffs[channel][other_channel].append(transitions[channel]['starts'][ov[0]] - transitions[other_channel]['starts'][ov[1]])
-                offset_diffs[channel][other_channel].append(transitions[channel]['ends'][ov[0]] - transitions[other_channel]['ends'][ov[1]])
-    return onset_diffs, offset_diffs
+        if nearest <= delta:
+            coinc += 1
 
-def get_full_onset_offset_diffs(transitions, overlapping_offs):
-    onset_diffs = {}
-    offset_diffs = {}
-    for probe in transitions.keys():
-        onset_diffs[probe] = {}
-        offset_diffs[probe] = {}
-        for condition in transitions[probe].keys():
-            onset_diffs[probe][condition], offset_diffs[probe][condition] = _get_onset_offset_diffs(transitions[probe][condition], overlapping_offs[probe][condition])
-    return onset_diffs, offset_diffs
-
-def generate_onset_offset_diff_df(onset_diffs, offset_diffs):
-    dfs = []
-    for probe in onset_diffs.keys():
-        for cond in onset_diffs[probe].keys():
-            for chan in onset_diffs[probe][cond].keys():
-                for comp_chan in onset_diffs[probe][cond][chan].keys():
-                    dfs.append(pd.DataFrame({'onset_diff': onset_diffs[probe][cond][chan][comp_chan], 'offset_diff': offset_diffs[probe][cond][chan][comp_chan], 'comp_chan': comp_chan, 'cond': cond, 'probe': probe, 'channel': chan}))
-    master_df = pd.concat(dfs)
-    master_df['abs_onset_diff'] = master_df['onset_diff'].abs()
-    master_df['abs_offset_diff'] = master_df['offset_diff'].abs()
-    return master_df
-
-def calculate_global_off_synchrony(mua, oodf):
-    "Global Synchrony -- Not really useful probably"
-    sync = pd.DataFrame(columns = ['start_datetime', 'end_datetime', 'channel', 'onset_spike', 'offset_spike', 'opdur', 'probe'])
-    if type(oodf) != pd.DataFrame:
-        oodf = oodf.to_pandas()
-    if type(mua) != pd.DataFrame:
-        mua = mua.to_pandas()
-    for probe in oodf.prbs():
-        for off in oodf.prb(probe).offs().itertuples():
-            off_begin = off.start_datetime
-            off_end = off.end_datetime
-            opdur = (off_end - off_begin).total_seconds()
-            
-            for channel in mua['channel'].unique():
-                ch_times = mua.prb(probe).chnl(channel)['datetime']
-                onset_diffs = off_begin-ch_times
-                offset_diffs = ch_times - off_end
-                onset_diffs = onset_diffs[onset_diffs > pd.Timedelta('0s')]
-                offset_diffs = offset_diffs[offset_diffs > pd.Timedelta('0s')]
-                onset_spike = onset_diffs.min()
-                offset_spike = offset_diffs.min()
-                chdf = pd.DataFrame({'start_datetime': off_begin, 'end_datetime': off_end, 'channel': channel, "probe": probe, 'onset_spike': onset_spike, 'offset_spike': offset_spike, "opdur":opdur}, index=[0])
-                sync = pd.concat([sync, chdf])
-    return sync
-
-def save_off_masks_pipeline(subject, exp, probes=['NNXo', 'NNXr']):
-    hd = acr.hypnogram_utils.create_acr_hyp_dict(subject, exp)
-    #osc = acr.onoffmua.load_oodf(subject, exp)
-    mua = acr.mua.load_concat_peaks_df(subject, exp)
-    osc = acr.onoffmua.compute_full_oodf_by_channel(mua)
-    osc_st = acr.onoffmua.true_strictify_oodf(osc)
-    offs = osc.offs()
-    offs_st = osc_st.offs()
-    
-    #First the non-strict masks
-    bout_off_masks = {}
-    for probe in probes:
-        bout_off_masks[probe], bout_mask_times = acr.sync.get_off_masks_by_bout(offs.prb(probe), hd)
-    mask_path = f'/Volumes/neuropixel_archive/Data/acr_archive/mua_data/{subject}/off_masks/{exp}--off_masks_by_bout.pkl'
-    mask_times_path = f'/Volumes/neuropixel_archive/Data/acr_archive/mua_data/{subject}/off_masks/{exp}--off_masks_by_bout_times.pkl'
-    with open(mask_path, 'wb') as f:
-        pickle.dump(bout_off_masks, f)
-    with open(mask_times_path, 'wb') as f:
-        pickle.dump(bout_mask_times, f)
-
-    #Now the strict masks
-    bout_off_masks_st = {}
-    for probe in probes:
-        bout_off_masks_st[probe], bout_mask_times_st = acr.sync.get_off_masks_by_bout(offs_st.prb(probe), hd)
-    mask_path = f'/Volumes/neuropixel_archive/Data/acr_archive/mua_data/{subject}/off_masks/{exp}--off_masks_by_bout_strict.pkl'
-    with open(mask_path, 'wb') as f:
-        pickle.dump(bout_off_masks_st, f)
-    return
-
-def load_off_masks(subject, exp, probes=['NNXo', 'NNXr'], strict=False, times=False):
-    mask_path = f'/Volumes/neuropixel_archive/Data/acr_archive/mua_data/{subject}/off_masks/{exp}--off_masks_by_bout.pkl'
-    if strict:
-        mask_path = mask_path.replace('off_masks_by_bout', 'off_masks_by_bout_strict')
-    with open(mask_path, 'rb') as f:
-        bout_off_masks = pickle.load(f)
-    if times:
-        time_path = f'/Volumes/neuropixel_archive/Data/acr_archive/mua_data/{subject}/off_masks/{exp}--off_masks_by_bout_times.pkl'
-        with open(time_path, 'rb') as f:
-            bout_mask_times = pickle.load(f)
-            return bout_off_masks, bout_mask_times
-    elif times==False:
-        return bout_off_masks
-    
-def morpho_clean_mask(off_mask, horz_remove=50, vert_remove=2, vert_connect=2, horz_connect=6, morpho_ops=None):
-    import dask_image.ndmorph
-    from dask_image import ndmorph
-    import dask.array as dska
-    if morpho_ops is not None:
-        horz_remove = morpho_ops['horz_remove']
-        vert_remove = morpho_ops['vert_remove']
-        vert_connect = morpho_ops['vert_connect']
-        horz_connect = morpho_ops['horz_connect']
-
-    om = off_mask.copy()
-    
-    # # # vertical : Remove few-channel epochs
-    struct = np.ones((1, vert_remove))
-    print(f"Binary open: {struct.shape}")
-    om.data = dask_image.ndmorph.binary_opening(om.data, structure=struct, iterations=1)
-    
-     # # Horizontal  Remove shorter blobs
-    struct = np.ones((horz_remove, 1))
-    print(f"Binary open: {struct.shape}")
-    om.data = dask_image.ndmorph.binary_opening(om.data, structure=struct, iterations=1)
-    
-     # # vertical : Connect distant blobs vertically
-     # vertical : Connect distant blobs vertically
-    struct = np.ones((1, vert_connect))
-    print(f"Binary close: {struct.shape}")
-    temp_pad = dska.pad(om.data, ((0, 0), (vert_connect, vert_connect)), mode='edge')
-    temp_pad_cleaned = dask_image.ndmorph.binary_closing(temp_pad, structure=struct, iterations=1)
-    # remove the padding
-    om.data = temp_pad_cleaned[:, vert_connect:-vert_connect]
-    
-    #horizontal closing: connect across small gaps
-    struct = np.ones((horz_connect, 1))
-    print(f"Binary close: {struct.shape}")
-    om.data = dask_image.ndmorph.binary_closing(om.data, structure=struct, iterations=1)
-    
-    # # Horizontal  Remove shorter blobs
-    struct = np.ones((10, 2))
-    print(f"Binary open: {struct.shape}")
-    om.data = dask_image.ndmorph.binary_opening(om.data, structure=struct, iterations=1)
-    
-    return om
+    return coinc / na
 
 
-# ----------------- WHOLE-PROBE Synchrony -----------------
-# =========================================================
-
-def find_onset_diffs(spike_times, onset_times):
+# ---------------------------------------------------------------------
+# 2. Proportion of time within ±Δ of ANY spike (O(N))
+# ---------------------------------------------------------------------
+@njit
+def _prop_time_within_delta(spikes: np.ndarray,
+                            rec_start: float,
+                            rec_end: float,
+                            delta: float) -> float:
     """
-    For each datetime in onset_times, find the index in spike_times of the largest datetime
-    that is <= the datetime in onset_times.
-
-    Parameters:
-    - spike_times: List[datetime], sorted in ascending order
-    - onset_times: List[datetime], any order
-
-    Returns:
-    - List[int]: Indices in spike_times corresponding to each datetime in onset_times
+    Fraction of [rec_start, rec_end] that lies within ±delta of any spike.
+    Uses the gap-sum formula; arrays must be sorted.
     """
-    # Convert datetime lists to numpy datetime64 for efficient computation
-    spike_array = np.array(spike_times).astype('datetime64[ns]')
-    onset_array = np.array(onset_times).astype('datetime64[ns]')
+    n = spikes.size
+    if n == 0:
+        return 0.0
 
-    # check that both arrays are sorted
-    #assert np.all(np.diff(spike_times) >= 0)
-    #assert np.all(np.diff(onset_times) >= 0)
+    total = rec_end - rec_start
+    if total <= 0.0:
+        return 0.0
+
+    # Core coverage without edge clipping
+    covered = 2.0 * delta * n
+    if n > 1:
+        gaps = np.diff(spikes)
+        overlap = 0.0
+        for g in gaps:
+            tmp = 2.0 * delta - g
+            if tmp > 0.0:
+                overlap += tmp
+        covered -= overlap
+
+    # Clip first and last intervals to recording window
+    left_overhang  = max(0.0, (rec_start - (spikes[0] - delta)))
+    right_overhang = max(0.0, ((spikes[-1] + delta) - rec_end))
+    covered -= (left_overhang + right_overhang)
+
+    # Normalise
+    if covered < 0.0:
+        covered = 0.0
+    elif covered > total:
+        covered = total
+
+    return covered / total
+
+
+# ---------------------------------------------------------------------
+# 3. One-pair STTC (unchanged formula, faster helpers)
+# ---------------------------------------------------------------------
+@njit
+def _sttc_pair(a: np.ndarray, b: np.ndarray,
+               rec_start: float, rec_end: float,
+               delta: float) -> float:
+    TA = _fraction_with_partner(a, b, delta)
+    TB = _fraction_with_partner(b, a, delta)
+    PA = _prop_time_within_delta(a, rec_start, rec_end, delta)
+    PB = _prop_time_within_delta(b, rec_start, rec_end, delta)
     
-    # Use searchsorted to find insertion points
-    # side='right' returns the index where the element should be inserted to maintain order
-    insertion_indices = np.searchsorted(spike_array, onset_array, side='right') - 1
+    def part(T, P):
+        denom = 1.0 - T * P
+        return 0.0 if denom == 0.0 else (T - P) / denom
 
-    # Handle cases where no element in spike_times is <= the short datetime
-    # Set such indices to -1 or any sentinel value as per your requirement
-    insertion_indices[insertion_indices < 0] = -1
+    return 0.5 * (part(TA, PA) + part(TB, PB))
 
-    onset_spikes = spike_array[insertion_indices.tolist()]
-    onset_diffs = (pd.DatetimeIndex(onset_array) - pd.DatetimeIndex(onset_spikes)).total_seconds()
-    
-    return np.array(onset_diffs)
 
-def find_offset_diffs(spike_times, offset_times):
+# ---------------------------------------------------------------------
+# 4. Full STTC matrix, parallel over channels
+# ---------------------------------------------------------------------
+@njit(parallel=True)
+def sttc_matrix_fast(spike_trains: List[np.ndarray],
+                     rec_start: float,
+                     rec_end: float,
+                     delta: float) -> np.ndarray:
     """
-    For each datetime in offset_times, find the index in spike_times of the smallest datetime
-    that is >= the datetime in offset_times.
-
-    Parameters:
-    - spike_times: List[datetime], sorted in ascending order
-    - offset_times: List[datetime], any order
-
-    Returns:
-    - List[int]: Indices in spike_times corresponding to each datetime in offset_times
+    Upper-triangular K×K STTC matrix (diag & lower = NaN).
+    spike_trains: list of K sorted float seconds arrays.
     """
-    # Convert datetime lists to numpy datetime64 for efficient computation
-    spike_array = np.array(spike_times).astype('datetime64[ns]')
-    offset_array = np.array(offset_times).astype('datetime64[ns]')
+    K = len(spike_trains)
+    M = np.full((K, K), np.nan, dtype=np.float64)
 
-    # check that both arrays are sorted
-    #assert np.all(np.diff(spike_times) >= 0)
-    #assert np.all(np.diff(offset_times) >= 0)
-    
-    # Use searchsorted to find insertion points
-    # side='right' returns the index where the element should be inserted to maintain order
-    insertion_indices = np.searchsorted(spike_array, offset_array, side='left')
+    for i in prange(K):
+        ai = spike_trains[i]
+        if ai.size < 2:          # optional skip for empty/sparse channels
+            continue
+        for j in range(i + 1, K):
+            bj = spike_trains[j]
+            if bj.size < 2:
+                continue
+            M[i, j] = _sttc_pair(ai, bj, rec_start, rec_end, delta)
 
-    # Handle cases where the short datetime is greater than all in long_list
-    insertion_indices = np.where(insertion_indices < len(spike_array), insertion_indices, -1)
+    return M
 
-    offset_spikes = spike_array[insertion_indices.tolist()]
-    offset_diffs = (pd.DatetimeIndex(offset_spikes) - pd.DatetimeIndex(offset_array)).total_seconds()
-    
-    
-    return np.array(offset_diffs)
+def process_nrem_epochs_fast(
+    all_spike_trains_dt: List[List[np.ndarray]],
+    nrem_epochs: List[Tuple[np.datetime64, np.datetime64]],
+    delta_ms: float = 5.0
+) -> List[np.ndarray]:
+    """
+    Compute STTC matrices for multiple NREM epochs for a single probe's spike data.
+    - all_spike_trains_dt: list of K spike trains, each np.datetime64[ns]
+    - nrem_epochs: list of (start, end) np.datetime64[ns] tuples
+    Returns a list of K×K STTC matrices (float64) in the same order as nrem_epochs.
+    """
+    # Pre-convert all channels to float seconds once
+    sec_trains_full = acr.sync.convert_spike_trains_to_seconds(all_spike_trains_dt)
+    delta = delta_ms * 1e-3  # convert ms to seconds
 
+    sttc_matrices = []
+    for (t0_dt, t1_dt) in nrem_epochs:
+        #print(t0_dt)
+        # Convert epoch boundaries to seconds
+        t0_sec = t0_dt.astype('datetime64[ns]').astype(np.int64) * 1e-9
+        t1_sec = t1_dt.astype('datetime64[ns]').astype(np.int64) * 1e-9
 
-# ----------------- Field Potentials / Slope -----------------
-# =========================================================
+        # Extract spikes within the epoch for each channel efficiently
+        seg_sec = []
+        for train in sec_trains_full:
+            # Find indices of the window boundary via searchsorted
+            idx0 = np.searchsorted(train, t0_sec, side='left')
+            idx1 = np.searchsorted(train, t1_sec, side='right')
+            seg = train[idx0:idx1]
+            seg_sec.append(seg)
 
-def compute_full_slope_df(off_means, fs):
-    off_means = off_means.sort_values(['channel', 't'])
-    slope_df = pd.DataFrame()
-    for channel in off_means['channel'].unique():
-        channel_df = off_means[off_means['channel']==channel]
-        x = channel_df['t'].values
-        y = channel_df['d'].values
-        drvtv = acr.fp.compute_instantaneous_slope_savgol(y, sampling_rate=fs, window_length=15, polyorder=5)
-        drvtv2 = acr.fp.compute_instantaneous_slope_savgol(drvtv, sampling_rate=fs, window_length=15, polyorder=5)
-        chan_df = pd.DataFrame({'channel':channel, 't':x, 'deriv':drvtv, 'deriv2':drvtv2})
-        slope_df = pd.concat([slope_df, chan_df])
-    slope_df.reset_index(drop=True, inplace=True)
-    slope_df = slope_df.sort_values(['channel', 't'])
-    off_means['deriv'] = slope_df['deriv']
-    off_means['deriv2'] = slope_df['deriv2']
-    return off_means        
+        # JIT-compiled STTC matrix
+        M = sttc_matrix_fast(seg_sec, t0_sec, t1_sec, delta)
+        sttc_matrices.append(M)
+
+    return sttc_matrices
+
+def dual_probe_sttc(full_mua, hypno_to_use, delta_ms=5.0):
+    epocs = [(np.datetime64(bout.start_time), np.datetime64(bout.end_time)) for bout in hypno_to_use.itertuples()]
+    sttc_mats = {}
+    for probe in ['NNXr', 'NNXo']:
+        mua_to_use = full_mua.filter(pl.col('probe')==probe).filter((pl.col('datetime')>=hypno_to_use.start_time.min())&(pl.col('datetime')<=hypno_to_use.end_time.max()))
+        strains = [mua_to_use.filter(pl.col('channel')==i)['datetime'].to_numpy() for i in range(1, 17)]
+        sttc_mats[probe] = process_nrem_epochs_fast(strains, epocs, delta_ms=delta_ms)
+    return sttc_mats
+import numpy as np
+from typing import List
+
+def average_sttc_matrices(sttc_list: List[np.ndarray]) -> np.ndarray:
+    """
+    Given a list of K×K STTC matrices (one per NREM bout), return the
+    element-wise average across all bouts, ignoring NaNs.
+
+    sttc_list: List of NumPy arrays of shape (K, K).  All must share the same shape.
+    Returns:   A single (K, K) array where entry (i,j) is the nanmean of sttc_list[b][i,j].
+    """
+    # Stack into shape (K, K, n_bouts)
+    arr = np.stack(sttc_list, axis=2)
+    # Compute element-wise mean, ignoring NaNs
+    mean_mat = np.nanmean(arr, axis=2)
+    return mean_mat
+
+import numpy as np
+from typing import List, Sequence
+
+def mask_bad_channels(
+    sttc_matrices: List[np.ndarray],
+    bad_channels:   Sequence[int]
+) -> List[np.ndarray]:
+    """
+    Replace all (row, col) entries involving *any* bad channel with NaN.
+
+    Parameters
+    ----------
+    sttc_matrices : list of (K, K) arrays
+        One STTC matrix per NREM bout (already computed).
+    bad_channels  : iterable of ints
+        Zero-based indices of channels to exclude, e.g. [3, 5].
+
+    Returns
+    -------
+    masked_mats : list of (K, K) arrays
+        Same objects left-in-place (for memory economy) but with NaNs
+        written into the rows and columns of every bad channel.
+    """
+    if not bad_channels:
+        return sttc_matrices                           # nothing to do
+
+    for M in sttc_matrices:                            # loop over bouts
+        M[np.ix_(bad_channels,        range(M.shape[1]))] = np.nan
+        M[np.ix_(range(M.shape[0]),   bad_channels   )] = np.nan
+        # optional: also NaN the diagonal of those channels if it
+        # wasn’t already (our STTC code leaves the whole diag NaN).
+    return sttc_matrices

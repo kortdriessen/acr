@@ -24,10 +24,11 @@ LASER_BLUE = '#00B0F0'
 NREM_RED = '#983F3F'
 NNXR_GRAY = "#4b4e4d"
 NNXO_BLUE = '#00B0F0'
+CTRL_BLUE = '#477E97'
 EMG_SLATE = '#2b3e4b'
 VIOLET = '#a764fa'
 BACKUP_RED = '#ff7575'
-
+HALO_GREEN = '#53D73D'
 
 BAND_ORDER = ['delta1', 'delta2', 'delta', 'theta', 'alpha', 'sigma', 'beta', 'low_gamma', 'high_gamma']
 COND_ORDER = ['early_bl', 'circ_bl', 'early_sd', 'late_sd', 'stim', 'rebound', 'late_rebound']
@@ -52,7 +53,7 @@ pal_full = ['#475ED1',
 
 
 sub_swi_exps = {
-    "ACR_14": ["swi"],
+    #"ACR_14": ["swi"],
     "ACR_16": ["swi2"],
     "ACR_17": ["swi"],
     "ACR_18": ["swi"],
@@ -63,20 +64,22 @@ sub_swi_exps = {
     "ACR_25": ["swi"],
     "ACR_26": ["swi"],
     "ACR_27": ["swi"],
-    #"ACR_28": ["swi", "swisin"], don't think the data quality was good enough to use this mouse
+    #"ACR_28": ["swi"], # had to exclude this mouse completely, had really bad artifact basically constantly that could not be removed automatically or labelled out.
     "ACR_29": ["swi"],
     "ACR_30": ["swi2"],
     "ACR_31": ["swi2"],
     "ACR_33": ["swi"],
     "ACR_34": ["swi"],
-    "ACR_35": ["swi"], #don't think I can include the TBS experiment here...
+    "ACR_35": ["swi"], 
     "ACR_37": ["swi2"],
     "ACR_39": ["swi"],
     "ACR_40": ["swi"],
     "ACR_41": ["swi"],
     "ACR_42": ["swi"],
     "ACR_44": ["swi"],
-    "ACR_45": ["swi2"],
+    #"ACR_45": ["swi"],
+    "ACR_48": ['swi'],
+    "ACR_49": ['swi'],
 }
 
 sub_swisin_exps = {
@@ -89,13 +92,19 @@ sub_swisin_exps = {
     "ACR_31": ["swisin2"],
     "ACR_33": ["swisin"],
     "ACR_34": ["swisin2"],
-    "ACR_37": ["swisin3"],
+    #"ACR_37": ["swisin3"], # cannot justify including this, was 5-6 experiments in, firing rate data is a mess, etc.
     "ACR_39": ["swisin"],
     "ACR_40": ["swisin"],
     "ACR_41": ["swisin"],
     "ACR_42": ["swisin"],
     "ACR_44": ["swisin"],
-    "ACR_45": ["swisin"],
+    #"ACR_45": ["swisin"], # big issues with firing rate, etc. look into this
+    "ACR_46": ["swisin2"],
+    "ACR_50": ['swisin2'],
+    "ACR_51": ['swisin'],
+    "ACR_52": ['swisin2'],
+    "ACR_53": ['swisin'],
+    "ACR_54": ['swisin2'],
 }
 
 sub_swinat_exps = {
@@ -143,11 +152,19 @@ sub_probe_locations = {
     "ACR_42": "parietal",
     "ACR_44": "parietal",
     "ACR_45": "parietal",
+    "ACR_46": "frontal",
+    "ACR_48": "parietal",
+    "ACR_49": "parietal",
+    "ACR_50": "frontal",
+    "ACR_51": "frontal",
+    "ACR_52": "parietal",
+    "ACR_53": "frontal",
+    "ACR_54": "frontal",
 }
 
 sub_exp_types = {
     #"ACR_14": "acr",
-    "ACR_16": "acr",
+    "ACR_16": "acr", #another candidate for full exclusion... lfp data appears completely fine, unit data is certainly not usable, high frequency activity just completely drops out of one probe.
     "ACR_17": "acr",
     "ACR_18": "acr",
     "ACR_19": "acr",
@@ -172,6 +189,14 @@ sub_exp_types = {
     "ACR_42": "control",
     "ACR_44": "som",
     "ACR_45": "som",
+    "ACR_46": "halo",
+    "ACR_48": "control",
+    "ACR_49": "control",
+    "ACR_50": "halo",
+    "ACR_51": "halo",
+    "ACR_52": "halo",
+    "ACR_53": "halo",
+    "ACR_54": "halo",
 }
 
 
@@ -181,17 +206,17 @@ sub_exp_manifest['swisin'] = sub_swisin_exps
 sub_exp_manifest['swinat'] = sub_swinat_exps
 sub_exp_manifest['control'] = sub_ctrl_exps
 
-
 som_animals = [sub for sub in sub_exp_types if sub_exp_types[sub] == 'som']
 acr_animals = [sub for sub in sub_exp_types if sub_exp_types[sub] == 'acr']
 control_animals = [sub for sub in sub_exp_types if sub_exp_types[sub] == 'control']
-
+halo_animals = [sub for sub in sub_exp_types if sub_exp_types[sub] == 'halo']
 
 def get_acr_sub_groups():
     acr_sub_groups = {}
     acr_sub_groups['acr'] = {}
     acr_sub_groups['som'] = {}
     acr_sub_groups['control'] = {}
+    acr_sub_groups['halo'] = {}
     for exp_type in acr_sub_groups:
         acr_sub_groups[exp_type]['frontal'] = []
         acr_sub_groups[exp_type]['parietal'] = []

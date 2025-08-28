@@ -405,14 +405,14 @@ if st.button("Process LFPs (downsample and save raw data)"):
     st.write("Processing LFPs")
     acr.info_pipeline.preprocess_and_save_all_recordings(subject, fs_target=400)
     st.write("Processing Bandpower Data")
-    acr.io.calc_and_save_bandpower_sets(
-        subject, stores=stores, window_length=4, overlap=2
+    acr.io.MT_calc_and_save_bandpower_sets(
+        subject, stores=stores, redo=False,
     )
 
 if st.button("Calculate and Save Bandpower Sets"):
     # Then process the bandpower data
     st.write("Processing Bandpower Data")
-    acr.io.calc_and_save_bandpower_sets(
+    acr.io.MT_calc_and_save_bandpower_sets(
         subject, stores=stores, window_length=4, overlap=2
     )
 
@@ -430,5 +430,5 @@ if "PROCESS MUA!" in process_mua:
     exp_list = st.multiselect("Experiments to process MUA for", possible_exps, None)
     if st.button("Run Full Mua Pipeline!"):
         st.write("Preprocessing Data for MUA...")
-        acr.mua.full_mua_pipeline_for_subject(subject, list_of_exps=exp_list, overwrite=False, df_version='concat', detect_jobs=56)
+        acr.mua.full_mua_pipeline_for_subject(subject, list_of_exps=exp_list, overwrite=False, interpol=True, df_version='concat', detect_jobs=56)
         st.write("MUA Detection Done!")

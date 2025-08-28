@@ -16,4 +16,7 @@ from . import (
     fp,
     dev,
     nor,
+    stats,
+    oo_utils,
+    dlc,
 )
