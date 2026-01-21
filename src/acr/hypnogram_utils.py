@@ -17,6 +17,7 @@ import polars as pl
 import kdephys
 import math
 
+
 def gen_config(
     subject="",
     chunks=6,
@@ -63,8 +64,8 @@ def gen_config(
         data["datasets"][0]["binPath"] = data_path
         # Set the channels
         data["datasets"][0]["chanList"] = chans
-        #set the downsample rate
-        data['downSample'] = downsample
+        # set the downsample rate
+        data["downSample"] = downsample
         # Set the times
         tend = ((rel_num + 1) * chunk_length) + start_time
         data["tStart"] = tend - chunk_length
@@ -420,31 +421,36 @@ def standard_hypno_corrections(hyp):
     hyp = remove_duplicate_bouts(hyp)
     return hyp
 
-def get_cumulative_rebound_hypno(hypno, reb_start, cum_dur='3600s', states=['NREM']):
-    reb_hypno = trim_hypnogram(hypno._df, reb_start, reb_start+pd.Timedelta('6h'), ret_hyp=True)
+
+def get_cumulative_rebound_hypno(hypno, reb_start, cum_dur="3600s", states=["NREM"]):
+    reb_hypno = trim_hypnogram(
+        hypno._df, reb_start, reb_start + pd.Timedelta("6h"), ret_hyp=True
+    )
     cum_reb_hypno = reb_hypno.keep_states(states).keep_first(cum_dur)
     return cum_reb_hypno
 
+
 def get_circadian_match_of_rebound(reb_hypno):
-    t1 = reb_hypno['start_time'].min()
-    t2 = reb_hypno['end_time'].max()
-    blt1 = t1 - pd.Timedelta('24h')
-    blt2 = t2 - pd.Timedelta('24h')
+    t1 = reb_hypno["start_time"].min()
+    t2 = reb_hypno["end_time"].max()
+    blt1 = t1 - pd.Timedelta("24h")
+    blt2 = t2 - pd.Timedelta("24h")
     return blt1, blt2
 
-def get_previous_day_times(ref_time, t1='09:00:00', t2='21:00:00'):
+
+def get_previous_day_times(ref_time, t1="09:00:00", t2="21:00:00"):
     """
     takes a ref_time, and gives you the times t1 and t2 of the day previous to ref_time
     """
-    
-    prev_day_ref_time = ref_time - pd.Timedelta('24h')
-    prev_day_string = prev_day_ref_time.strftime('%Y-%m-%d %H:%M:%S').split(' ')[0]
-    t1 = pd.to_datetime(f'{prev_day_string} {t1}')
-    t2 = pd.to_datetime(f'{prev_day_string} {t2}')
+
+    prev_day_ref_time = ref_time - pd.Timedelta("24h")
+    prev_day_string = prev_day_ref_time.strftime("%Y-%m-%d %H:%M:%S").split(" ")[0]
+    t1 = pd.to_datetime(f"{prev_day_string} {t1}")
+    t2 = pd.to_datetime(f"{prev_day_string} {t2}")
     return t1, t2
 
 
-def get_bl_times(reb_hypno, mode='full'):
+def get_bl_times(reb_hypno, mode="full"):
     """Get the times for the day before the first time of the rebound hypnogram, according to mode.
 
     Parameters
@@ -457,84 +463,225 @@ def get_bl_times(reb_hypno, mode='full'):
         - circ: return the circadian-matched hypnogram of the previous day
     """
     reb_start = reb_hypno.start_time.min()
-    prev_day = (reb_start - pd.Timedelta('24h')).strftime('%Y-%m-%d').split(' ')[0]
-    if mode == 'full':
-        blt1 = pd.Timestamp(f'{prev_day} 09:00:00')
-        blt2 = pd.Timestamp(f'{prev_day} 21:00:00')
-    elif mode == 'circ':
-        t1 = reb_hypno['start_time'].min()
-        t2 = reb_hypno['end_time'].max()
-        blt1 = t1 - pd.Timedelta('24h')
-        blt2 = t2 - pd.Timedelta('24h')
+    prev_day = (reb_start - pd.Timedelta("24h")).strftime("%Y-%m-%d").split(" ")[0]
+    if mode == "full":
+        blt1 = pd.Timestamp(f"{prev_day} 09:00:00")
+        blt2 = pd.Timestamp(f"{prev_day} 21:00:00")
+    elif mode == "circ":
+        t1 = reb_hypno["start_time"].min()
+        t2 = reb_hypno["end_time"].max()
+        blt1 = t1 - pd.Timedelta("24h")
+        blt2 = t2 - pd.Timedelta("24h")
     else:
         raise ValueError('mode must be either "full" or "circ"')
     return blt1, blt2
 
-def _get_hd_as_float(subject, exp, update=False, duration='3600s'):
-    hd = acr.hypnogram_utils.create_acr_hyp_dict(subject, exp, update=update, duration=duration)
-    recs, starts, durations = acr.units.get_time_info(subject, f'{exp}-NNXr')
+
+def _get_hd_as_float(subject, exp, update=False, duration="3600s"):
+    hd = acr.hypnogram_utils.create_acr_hyp_dict(
+        subject, exp, update=update, duration=duration
+    )
+    recs, starts, durations = acr.units.get_time_info(subject, f"{exp}-NNXr")
     full_start_time = pd.Timestamp(starts[0])
     float_hd = {}
     for key in hd.keys():
         h = hd[key].copy()
-        h['start_time'] = (h['start_time'] - full_start_time).dt.total_seconds()
-        h['end_time'] = (h['end_time'] - full_start_time).dt.total_seconds()
-        h['duration'] = h['end_time'] - h['start_time']
+        h["start_time"] = (h["start_time"] - full_start_time).dt.total_seconds()
+        h["end_time"] = (h["end_time"] - full_start_time).dt.total_seconds()
+        h["duration"] = h["end_time"] - h["start_time"]
         float_hd[key] = Hypnogram(h)
     return float_hd
+
 
 def get_true_stim_hyp(subject, exp):
     pon, poff = acr.stim.get_individual_pulse_times(subject, exp)
     ton, toff = acr.stim.get_pulse_train_times(pon, poff, times=True)
     durations = [(t_end - t_start).total_seconds() for t_start, t_end in zip(ton, toff)]
-    hyp = pd.DataFrame({'start_time': ton, 'end_time': toff, 'state': 'Wake', 'duration': durations})
-    return DatetimeHypnogram(hyp) 
+    hyp = pd.DataFrame(
+        {"start_time": ton, "end_time": toff, "state": "Wake", "duration": durations}
+    )
+    return DatetimeHypnogram(hyp)
 
 
-def create_acr_hyp_dict(subject, exp, duration='3600s', update=False, float_hd=False, true_stim=False, extra_rebounds=False):
+def create_acr_hyp_dict(
+    subject,
+    exp,
+    duration="3600s",
+    update=False,
+    float_hd=False,
+    true_stim=False,
+    extra_rebounds=False,
+):
     if float_hd:
         return _get_hd_as_float(subject, exp, update=update, duration=duration)
     h = acr.io.load_hypno_full_exp(subject, exp, update=update)
     hd = {}
-    sd_true_start, stim_start, stim_end, rebound_start, full_exp_start = acr.info_pipeline.get_sd_exp_landmarks(subject, exp, update=False)
-    reb_hypno = acr.hypnogram_utils.get_cumulative_rebound_hypno(h, rebound_start, cum_dur=duration)
-    hd['rebound'] = reb_hypno
+    sd_true_start, stim_start, stim_end, rebound_start, full_exp_start = (
+        acr.info_pipeline.get_sd_exp_landmarks(subject, exp, update=False)
+    )
+    reb_hypno = acr.hypnogram_utils.get_cumulative_rebound_hypno(
+        h, rebound_start, cum_dur=duration
+    )
+    hd["rebound"] = reb_hypno
     reb_end = reb_hypno.end_time.max()
-    xday = pd.Timestamp(rebound_start).strftime('%Y-%m-%d')
-    xday_end = pd.Timestamp(xday+' 21:00:00')
-    full_bl_t1, full_bl_t2 = acr.hypnogram_utils.get_bl_times(reb_hypno, mode='full')
-    circ_bl_t1, circ_bl_t2 = acr.hypnogram_utils.get_bl_times(reb_hypno, mode='circ')
-    hd['early_bl'] = h.trim_select(full_bl_t1, full_bl_t2).keep_states(['NREM']).keep_first(duration)
-    hd['circ_bl'] =  h.trim_select(circ_bl_t1, full_bl_t2).keep_states(['NREM']).keep_first(duration)
-    
+    xday = pd.Timestamp(rebound_start).strftime("%Y-%m-%d")
+    xday_end = pd.Timestamp(xday + " 21:00:00")
+    full_bl_t1, full_bl_t2 = acr.hypnogram_utils.get_bl_times(reb_hypno, mode="full")
+    circ_bl_t1, circ_bl_t2 = acr.hypnogram_utils.get_bl_times(reb_hypno, mode="circ")
+    hd["early_bl"] = (
+        h.trim_select(full_bl_t1, full_bl_t2).keep_states(["NREM"]).keep_first(duration)
+    )
+    hd["circ_bl"] = (
+        h.trim_select(circ_bl_t1, full_bl_t2).keep_states(["NREM"]).keep_first(duration)
+    )
+
     if true_stim:
-        hd['stim'] = get_true_stim_hyp(subject, exp)
+        hd["stim"] = get_true_stim_hyp(subject, exp)
     else:
-        hd['stim'] = h.trim_select(stim_start, stim_end)
-    hd['early_sd'] = h.trim_select(sd_true_start, stim_start).keep_states(['Wake', 'Wake-Good']).keep_first(duration)
-    hd['late_sd'] = h.trim_select(sd_true_start, stim_start).keep_states(['Wake', 'Wake-Good']).keep_last(duration)
-    infinite_end = xday_end+pd.Timedelta('36h')
+        hd["stim"] = h.trim_select(stim_start, stim_end)
+    hd["early_sd"] = (
+        h.trim_select(sd_true_start, stim_start)
+        .keep_states(["Wake", "Wake-Good"])
+        .keep_first(duration)
+    )
+    hd["late_sd"] = (
+        h.trim_select(sd_true_start, stim_start)
+        .keep_states(["Wake", "Wake-Good"])
+        .keep_last(duration)
+    )
+    infinite_end = xday_end + pd.Timedelta("36h")
     if extra_rebounds:
-        hd['reb2'] = h.trim_select(reb_end, infinite_end).keep_states(['NREM']).keep_first(duration)
-        reb2_end = hd['reb2'].end_time.max()
-        hd['reb3'] = h.trim_select(reb2_end, infinite_end).keep_states(['NREM']).keep_first(duration)
-        reb3_end = hd['reb3'].end_time.max()
-        hd['reb4'] = h.trim_select(reb3_end, infinite_end).keep_states(['NREM']).keep_first(duration)
-        reb4_end = hd['reb4'].end_time.max()
-        hd['reb5'] = h.trim_select(reb4_end, infinite_end).keep_states(['NREM']).keep_first(duration)
+        hd["reb2"] = (
+            h.trim_select(reb_end, infinite_end)
+            .keep_states(["NREM"])
+            .keep_first(duration)
+        )
+        reb2_end = hd["reb2"].end_time.max()
+        hd["reb3"] = (
+            h.trim_select(reb2_end, infinite_end)
+            .keep_states(["NREM"])
+            .keep_first(duration)
+        )
+        reb3_end = hd["reb3"].end_time.max()
+        hd["reb4"] = (
+            h.trim_select(reb3_end, infinite_end)
+            .keep_states(["NREM"])
+            .keep_first(duration)
+        )
+        reb4_end = hd["reb4"].end_time.max()
+        hd["reb5"] = (
+            h.trim_select(reb4_end, infinite_end)
+            .keep_states(["NREM"])
+            .keep_first(duration)
+        )
     if extra_rebounds == False:
-        hd['late_rebound'] = h.trim_select(reb_end, xday_end).keep_states(['NREM']).keep_last(duration)
+        hd["late_rebound"] = (
+            h.trim_select(reb_end, xday_end).keep_states(["NREM"]).keep_last(duration)
+        )
     return hd
 
+
+def create_hyp_dict_fast(
+    subject,
+    exp,
+    h=None,
+    duration="3600s",
+    update=False,
+    float_hd=False,
+    true_stim=False,
+    extra_rebounds=False,
+):
+    """Optimized version of create_acr_hyp_dict with identical functionality.
+
+    Optimizations:
+    - Inlines get_bl_times logic to avoid duplicate computation of reb_start_time
+    - Caches SD period hypnogram since it's used for both early_sd and late_sd
+    - For extra_rebounds, does single trim + keep_states call then subsets from result
+    """
+    if float_hd:
+        return _get_hd_as_float(subject, exp, update=update, duration=duration)
+
+    if h is None:
+        h = acr.io.load_hypno_full_exp(subject, exp, update=update)
+    hd = {}
+
+    sd_true_start, stim_start, stim_end, rebound_start, full_exp_start = (
+        acr.info_pipeline.get_sd_exp_landmarks(subject, exp, update=False, h=h)
+    )
+
+    reb_hypno = get_cumulative_rebound_hypno(h, rebound_start, cum_dur=duration)
+    hd["rebound"] = reb_hypno
+    reb_end = reb_hypno.end_time.max()
+
+    xday = pd.Timestamp(rebound_start).strftime("%Y-%m-%d")
+    xday_end = pd.Timestamp(xday + " 21:00:00")
+
+    # Inline get_bl_times logic to avoid computing reb_start_time twice
+    reb_start_time = reb_hypno.start_time.min()
+    prev_day = (reb_start_time - pd.Timedelta("24h")).strftime("%Y-%m-%d")
+    full_bl_t1 = pd.Timestamp(f"{prev_day} 09:00:00")
+    full_bl_t2 = pd.Timestamp(f"{prev_day} 21:00:00")
+    circ_bl_t1 = reb_start_time - pd.Timedelta("24h")
+    # Note: circ_bl_t2 not used in original code (uses full_bl_t2 instead)
+
+    hd["early_bl"] = (
+        h.trim_select(full_bl_t1, full_bl_t2).keep_states(["NREM"]).keep_first(duration)
+    )
+    hd["circ_bl"] = (
+        h.trim_select(circ_bl_t1, full_bl_t2).keep_states(["NREM"]).keep_first(duration)
+    )
+
+    if true_stim:
+        hd["stim"] = get_true_stim_hyp(subject, exp)
+    else:
+        hd["stim"] = h.trim_select(stim_start, stim_end)
+
+    # Cache SD period hypnogram - used for both early_sd and late_sd
+    sd_wake_hypno = h.trim_select(sd_true_start, stim_start).keep_states(
+        ["Wake", "Wake-Good"]
+    )
+    hd["early_sd"] = sd_wake_hypno.keep_first(duration)
+    hd["late_sd"] = sd_wake_hypno.keep_last(duration)
+
+    infinite_end = xday_end + pd.Timedelta("36h")
+
+    if extra_rebounds:
+        # Single trim + keep_states call, then subset for each subsequent rebound
+        post_rebound_nrem = h.trim_select(reb_end, infinite_end).keep_states(["NREM"])
+
+        hd["reb2"] = post_rebound_nrem.keep_first(duration)
+        reb2_end = hd["reb2"].end_time.max()
+
+        hd["reb3"] = post_rebound_nrem.trim_select(reb2_end, infinite_end).keep_first(
+            duration
+        )
+        reb3_end = hd["reb3"].end_time.max()
+
+        hd["reb4"] = post_rebound_nrem.trim_select(reb3_end, infinite_end).keep_first(
+            duration
+        )
+        reb4_end = hd["reb4"].end_time.max()
+
+        hd["reb5"] = post_rebound_nrem.trim_select(reb4_end, infinite_end).keep_first(
+            duration
+        )
+    else:
+        hd["late_rebound"] = (
+            h.trim_select(reb_end, xday_end).keep_states(["NREM"]).keep_last(duration)
+        )
+
+    return hd
+
+
 def add_states_to_dataframe(df, h):
-    print('DEPRECATED: use label_df_with_states instead!!')
-    start_times = h['start_time'].values
-    end_times = h['end_time'].values
-    states = h['state'].values
-    times = df['datetime'].values
-    
+    print("DEPRECATED: use label_df_with_states instead!!")
+    start_times = h["start_time"].values
+    end_times = h["end_time"].values
+    states = h["state"].values
+    times = df["datetime"].values
+
     # Find the indices in the start_times where each time in `times` would be inserted
-    indices = np.searchsorted(start_times, times, side='right') - 1
+    indices = np.searchsorted(start_times, times, side="right") - 1
 
     # Ensure the found index is within bounds and the time is within the bout
     indices = np.clip(indices, 0, len(start_times) - 1)
@@ -546,20 +693,25 @@ def add_states_to_dataframe(df, h):
 
     # If there are times outside of the hypnogram ranges (unlikely in your case)
     # you may want to handle them, e.g., by setting a default state like 'unknown'
-    state_array[~valid_mask] = 'unlabelled'  # or whatever is appropriate
-    df['state'] = state_array
+    state_array[~valid_mask] = "unlabelled"  # or whatever is appropriate
+    df["state"] = state_array
     return df
+
 
 import kdephys as kde
 from kdephys.hypno.hypno import get_states_fast
 
-def label_df_with_states(df, h, col='datetime'):
+
+def label_df_with_states(df, h, col="datetime"):
     times = df[col].to_numpy()
     states = get_states_fast(h, times)
     states = np.array(states)
     return df.with_columns(state=pl.lit(states))
 
-def label_df_with_full_bl(df: pl.DataFrame, state: str = 'NREM', col: str = 'datetime') -> pl.DataFrame:
+
+def label_df_with_full_bl(
+    df: pl.DataFrame, state: str = "NREM", col: str = "datetime"
+) -> pl.DataFrame:
     """Label a 12-hour baseline period in a dataframe.
 
     Parameters
@@ -574,30 +726,29 @@ def label_df_with_full_bl(df: pl.DataFrame, state: str = 'NREM', col: str = 'dat
     pl.DataFrame
         The dataframe with a 'full_bl' column added, marking the 12-hour baseline period.
     """
-    
-    
-    
-    df = df.with_columns(full_bl=pl.lit('False'))
+
+    df = df.with_columns(full_bl=pl.lit("False"))
     bl_day = pd.Timestamp(df[col].min().date())
-    bl_9am = bl_day + pd.Timedelta('9h')
-    bl_9pm = bl_9am + pd.Timedelta('12h')
+    bl_9am = bl_day + pd.Timedelta("9h")
+    bl_9pm = bl_9am + pd.Timedelta("12h")
     df = df.with_columns(
         full_bl=pl.when((pl.col(col) >= bl_9am) & (pl.col(col) <= bl_9pm))
-        .then(pl.lit('True'))
-        .otherwise(pl.lit('False'))
+        .then(pl.lit("True"))
+        .otherwise(pl.lit("False"))
     )
-    
-    if state != 'None':
+
+    if state != "None":
         df = df.with_columns(
-            full_bl=pl.when(pl.col('state') != state)
-            .then(pl.lit('False'))
-            .otherwise(pl.col('full_bl'))
-            .alias('full_bl'))
-    
+            full_bl=pl.when(pl.col("state") != state)
+            .then(pl.lit("False"))
+            .otherwise(pl.col("full_bl"))
+            .alias("full_bl")
+        )
+
     return df
 
 
-def get_full_bl_hypno(hypno, state=['NREM']):
+def get_full_bl_hypno(hypno, state=["NREM"]):
     """given the full experimental hypnogram, return the times between 9am and 9pm on the day of the earliest start_time.
 
     Parameters
@@ -605,27 +756,37 @@ def get_full_bl_hypno(hypno, state=['NREM']):
     hypno : _type_
         _description_
     """
-    start_time = hypno['start_time'].min()
+    start_time = hypno["start_time"].min()
     bl_day = pd.Timestamp(start_time.date())
-    bl_9am = bl_day + pd.Timedelta('9h')
-    bl_9pm = bl_9am + pd.Timedelta('12h')
-    bl_hypno = hypno.trim_select(bl_9am, bl_9pm).keep_states(state) if type(state) == list else hypno.trim_select(bl_9am, bl_9pm).keep_states([state])
+    bl_9am = bl_day + pd.Timedelta("9h")
+    bl_9pm = bl_9am + pd.Timedelta("12h")
+    bl_hypno = (
+        hypno.trim_select(bl_9am, bl_9pm).keep_states(state)
+        if type(state) == list
+        else hypno.trim_select(bl_9am, bl_9pm).keep_states([state])
+    )
     return bl_hypno
 
-def label_df_with_hypno_conditions(df, hd, col=None, label_col='condition', max_bouts=1000): 
+
+def label_df_with_hypno_conditions(
+    df, hd, col=None, label_col="condition", max_bouts=1000
+):
     if col == None:
-        col = 'datetime'
+        col = "datetime"
     if type(df) == pl.DataFrame:
         return _label_polars_df(df, hd, col, max_bouts=max_bouts, label_col=label_col)
     else:
-        df[label_col] = 'None'
+        df[label_col] = "None"
         for key in hd.keys():
             for bout in hd[key].itertuples():
-                df.loc[((df[col] >= bout.start_time) & (df[col] <= bout.end_time)), label_col] = key
+                df.loc[
+                    ((df[col] >= bout.start_time) & (df[col] <= bout.end_time)),
+                    label_col,
+                ] = key
         return df
 
 
-def _label_polars_df(df, hd, col, label_col='condition', max_bouts=1000):
+def _label_polars_df(df, hd, col, label_col="condition", max_bouts=1000):
     """Vectorised interval labelling for Polars DataFrame.
 
     This re-implementation is **orders of magnitude faster** than the original
@@ -660,11 +821,13 @@ def _label_polars_df(df, hd, col, label_col='condition', max_bouts=1000):
         if bouts_df.empty:
             continue
 
-        tmp = pd.DataFrame({
-            "start_time": bouts_df["start_time"].values,
-            "end_time": bouts_df["end_time"].values,
-            "state": key,  # store desired label in the `state` column
-        })
+        tmp = pd.DataFrame(
+            {
+                "start_time": bouts_df["start_time"].values,
+                "end_time": bouts_df["end_time"].values,
+                "state": key,  # store desired label in the `state` column
+            }
+        )
         tmp["duration"] = tmp["end_time"] - tmp["start_time"]
         interval_tables.append(tmp)
 
@@ -700,8 +863,9 @@ def _label_polars_df(df, hd, col, label_col='condition', max_bouts=1000):
 
     return df
 
-def sel_random_bouts_for_plotting(hd, key, window_size=5, num_times=8, state='NREM'):
-    """takes a hypno dict, selects a key. Then finds bouts of NREM at least 30 seconds long and randomly selects a 5 second window from each bout. 
+
+def sel_random_bouts_for_plotting(hd, key, window_size=5, num_times=8, state="NREM"):
+    """takes a hypno dict, selects a key. Then finds bouts of NREM at least 30 seconds long and randomly selects a 5 second window from each bout.
 
     Parameters
     ----------
@@ -711,7 +875,7 @@ def sel_random_bouts_for_plotting(hd, key, window_size=5, num_times=8, state='NR
         _description_
     """
     hyp = hd[key].keep_states([state])
-    bouts = hyp.loc[hyp.duration>pd.Timedelta(seconds=30)]
+    bouts = hyp.loc[hyp.duration > pd.Timedelta(seconds=30)]
     bout_starts = bouts.start_time.values
     bout_ends = bouts.end_time.values
     starts = []
@@ -719,15 +883,16 @@ def sel_random_bouts_for_plotting(hd, key, window_size=5, num_times=8, state='NR
     random_bouts_to_plot = np.random.choice(len(bout_starts), num_times, replace=False)
     for bout in random_bouts_to_plot:
         start, end = pd.Timestamp(bout_starts[bout]), pd.Timestamp(bout_ends[bout])
-        duration = (end-start).total_seconds()
-        start_time = np.random.choice(int(duration-window_size))
-        starts.append(start+pd.Timedelta(seconds=start_time))
-        ends.append(start+pd.Timedelta(seconds=start_time+window_size))
+        duration = (end - start).total_seconds()
+        start_time = np.random.choice(int(duration - window_size))
+        starts.append(start + pd.Timedelta(seconds=start_time))
+        ends.append(start + pd.Timedelta(seconds=start_time + window_size))
     return starts, ends
 
+
 def get_light_schedule(hypno):
-    start = pd.Timestamp(hypno['start_time'].min())
-    end = pd.Timestamp(hypno['end_time'].max())
+    start = pd.Timestamp(hypno["start_time"].min())
+    end = pd.Timestamp(hypno["end_time"].max())
     chunks = (end - start).total_seconds() / 3600 / 12
     chunks = math.ceil(chunks)  # round up to nearest integer
     begin = pd.Timestamp(f'{start.date().strftime("%Y-%m-%d")} 09:00:00')

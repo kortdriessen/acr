@@ -1,0 +1,89 @@
+path.simplify: True
+path.simplify_threshold: 0.99
+
+# Legend Properties
+legend.loc: lower right
+
+# Set custom colors. All colors are in web style hex format.
+axes.prop_cycle: cycler('color', ['151313', '4E90EC', '73F092', 'EF5050', 'F852EF'])
+
+# Main Figure Properties
+figure.facecolor: FFFFFF
+figure.titlesize:   38     # size of the figure title (``Figure.suptitle()``)
+figure.titleweight: bold    # weight of the figure title
+
+# Main Axes Properties
+axes.facecolor: FFFFFF
+
+# Axes Title styling
+axes.titlelocation: left        # alignment of the title: {left, right, center}
+axes.titlepad: 6               # pad between axes and title in points
+axes.titlesize: 34              # font size of the axes title
+axes.titleweight: normal          # font weight of title
+
+# Grid Properties
+axes.grid: False                 # display grid or not
+axes.grid.axis: y               # which axis the grid should apply to          
+grid.linewidth: 1               # in points
+grid.color: 6E6E6E              # grid color
+grid.linestyle: dashed
+axes.axisbelow: True            # Sets axis gridlines below lines and patches.
+
+# Style spines
+
+axes.spines.top: False          # Display axis spines (True or False)
+axes.spines.left: True          # We only want the left and bottom spines
+axes.spines.right: False
+axes.spines.bottom: True
+axes.edgecolor: 000000          # Set spine color to black
+
+
+
+# Set spacing for figure and also DPI.
+figure.subplot.left: 0       # the left side of the subplots of the figure
+figure.subplot.right: 1      # the right side of the subplots of the figure
+figure.subplot.bottom: 0     # the bottom of the subplots of the figure
+figure.subplot.top: 1
+figure.subplot.hspace: 0.3    # the amount of height reserved for space between subplots, expressed as a fraction of the average axis height
+
+figure.figsize: 10, 10          # figure size in inches
+figure.dpi: 50                 # figure dots per inch
+
+# Setting font sizes and spacing
+axes.labelsize: 34              # font size of the x and y labels
+
+# ---------------------- All tick settings ----------------------
+
+xtick.bottom: False              # Ensure bottom x-ticks are visible
+xtick.top: False                # Ensure top x-ticks are not visible
+ytick.left: True                # Ensure left y-ticks are visible
+ytick.right: False              # Ensure right y-ticks are not visible
+
+
+
+xtick.color: 000000             # Color of x-tick lines (black)
+ytick.color: 000000             # Color of y-tick lines (black)
+
+xtick.major.size: 2.5                 # major tick size in points
+ytick.major.size: 2.5
+xtick.minor.size: 1             # minor tick size in points
+ytick.minor.size: 1
+
+# ---------------------- All tick label settings ----------------------
+xtick.labelbottom: True
+ytick.labelleft: True
+xtick.labelsize: 0             # font size of the x tick labels      
+ytick.labelsize: 0             # font size of the y tick labels
+font.size: 14                   # default font size for text, given in points.
+xtick.major.pad: 1              # distance to major tick label in points  
+ytick.major.pad: 1
+
+# ---------------------- Line widths for quick adjustments ----------------------
+lines.linewidth: 1            # line width in points (usually set in the plotting function)
+
+axes.linewidth: 0.7             # Spine edge line width
+xtick.major.width: 0.7          # Thickness of major x-tick lines
+ytick.major.width: 0.7          # Thickness of major y-tick lines
+
+# ---------------------- Boxplots ----------------------
+boxplot.whiskerprops.linewidth: 9

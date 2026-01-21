@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import find_packages, setup
 
 setup(
     name="acr",
@@ -8,7 +8,10 @@ setup(
     author="Kort Driessen",
     author_email="driessen2@wisc.edu",
     license="MIT",
-    packages=["acr"],
+    # packages=find_packages("src"),
+    # package_data={"acr": ["py.typed", "plot_styles/*.mplstyle"]},
+    package_dir={"": "src"},
+    packages=find_packages(where="src"),
     install_requires=[
         "streamlit",
         "plotly",
@@ -22,7 +25,7 @@ setup(
         "dask",
         "dask-image",
         "xhistogram",
-        "pingouin"
+        "pingouin",
     ],  # needs kdephys
     zip_safe=False,
 )

@@ -17,6 +17,7 @@ import pickle
 from acr.utils import raw_data_root, materials_root, opto_loc_root
 import polars as pl
 
+
 def load_rec_quality():
     path = f"{materials_root}master_rec_quality.xlsx"
     return pd.read_excel(path)
@@ -25,7 +26,7 @@ def load_rec_quality():
 def subject_params(subject):
     path = f"{materials_root}{subject}/subject_params.py"
     sub_params = SourceFileLoader("sub_params", path).load_module()
-    from sub_params import params # type: ignore
+    from sub_params import params  # type: ignore
 
     return params
 
@@ -40,12 +41,14 @@ def load_subject_info(subject):
     else:
         return benedict(data)
 
+
 def get_subject_list():
     important_recs = yaml.safe_load(open(f"{materials_root}important_recs.yaml", "r"))
     return list(important_recs.keys())
 
+
 def get_sub_info_list(file_path, section):
-    with open(file_path, 'r') as file:
+    with open(file_path, "r") as file:
         capture = False
         section_data = ""
 
@@ -56,7 +59,7 @@ def get_sub_info_list(file_path, section):
                 continue
             if capture:
                 # Capture lines that start with a dash and a space, indicating list items
-                if line.startswith('- '):
+                if line.startswith("- "):
                     section_data += line
                 else:
                     break  # Stop capturing when list items end
@@ -64,14 +67,14 @@ def get_sub_info_list(file_path, section):
         data = yaml.safe_load(section_data)
         return data[section]
 
+
 def subject_info_section(subject, section):
     file_path = f"{materials_root}{subject}/subject_info.yml"
-    
-    if section in ['recordings', 'raw_stores', 'lite_stores']:
+
+    if section in ["recordings", "raw_stores", "lite_stores"]:
         return get_sub_info_list(file_path, section)
-    
-    
-    with open(file_path, 'r') as file:
+
+    with open(file_path, "r") as file:
         capture = False
         section_data = ""
 
@@ -81,7 +84,9 @@ def subject_info_section(subject, section):
                 section_data += line
                 continue
             if capture:
-                if line.startswith(' ') or line.startswith('\t'):  # Section content is indented
+                if line.startswith(" ") or line.startswith(
+                    "\t"
+                ):  # Section content is indented
                     section_data += line
                 else:
                     break  # Stop capturing when indentation ends
@@ -90,6 +95,7 @@ def subject_info_section(subject, section):
         if type(data) == type(None):
             return None
         return data[section]
+
 
 def load_dup_info(subject, rec, store):
     path = f"{materials_root}duplication_info.yaml"
@@ -103,8 +109,9 @@ def correct_subject_naming_problem(true_subject, replace_string, recording):
         if replace_string in f:
             new_f = f.replace(replace_string, true_subject)
             os.rename(os.path.join(dir, f), os.path.join(dir, new_f))
-            print(f'f: {f}, new: {new_f}')
+            print(f"f: {f}, new: {new_f}")
     return
+
 
 def get_all_tank_keys(root, sub):
     tanks = []
@@ -160,7 +167,9 @@ def no_end_check(block):
         return math.isnan(block.info.stop_date)
 
 
-def get_rec_times(sub, exps, time_stores=["NNXo", "NNXr"], backup_store=["EMGr"], force_end_check=True):
+def get_rec_times(
+    sub, exps, time_stores=["NNXo", "NNXr"], backup_store=["EMGr"], force_end_check=True
+):
     """Gets durations, starts, and ends of recording times for set of experiments.
 
     Args:
@@ -180,7 +189,7 @@ def get_rec_times(sub, exps, time_stores=["NNXo", "NNXr"], backup_store=["EMGr"]
         i = d.info
         start = np.datetime64(i.start_date)
 
-        if (no_end_check(d) or force_end_check):
+        if no_end_check(d) or force_end_check:
             block_duration = get_duration_from_store(p, time_stores[0])
             end = start + pd.Timedelta(block_duration, "s")
             end = np.datetime64(end)
@@ -192,7 +201,9 @@ def get_rec_times(sub, exps, time_stores=["NNXo", "NNXr"], backup_store=["EMGr"]
 
         if not time_sanity_check(end):
             times[exp] = get_time_full_load(p, backup_store[0])
-            print(f'time sanity check failed for {exp}, using {backup_store[0]} to get end time')
+            print(
+                f"time sanity check failed for {exp}, using {backup_store[0]} to get end time"
+            )
             continue
 
         times[exp] = {}
@@ -412,7 +423,9 @@ def redo_subject_info(subject, recs=[]):
     return
 
 
-def preprocess_and_save_recording(subject, rec, fs_target=400, stores=None, interpol=False):
+def preprocess_and_save_recording(
+    subject, rec, fs_target=400, stores=None, interpol=False
+):
     """
     * Requires an updated subject_info file *
     Preprocesses (downsample via decimate) and saves a single recording as xarray object.
@@ -426,14 +439,16 @@ def preprocess_and_save_recording(subject, rec, fs_target=400, stores=None, inte
             print(f"Recording {rec} already processed. Skipping...")
             return
         else:
-            print(f"Recording {rec} already processed, but proceeding with specified stores") 
+            print(
+                f"Recording {rec} already processed, but proceeding with specified stores"
+            )
     path = f"{materials_root}{subject}/subject_info.yml"
     with open(path) as f:
         info = yaml.load(f, Loader=yaml.FullLoader)
     raw_data = {}
     path = info["paths"][rec]
     t2 = info["rec_times"][rec]["duration"]
-    
+
     if stores is None:
         stores = info["raw_stores"]
     else:
@@ -464,7 +479,9 @@ def preprocess_and_save_recording(subject, rec, fs_target=400, stores=None, inte
         print("saving: " + key)
         probe = key.split("-")[-1]
         if interpol == True:
-            acr.io.interpol_and_save_fp_data(subject, rec, probe, redo=False, data=dec_data[key], new_path=False)
+            acr.io.interpol_and_save_fp_data(
+                subject, rec, probe, redo=False, data=dec_data[key], new_path=False
+            )
         else:
             save_path = save_root + key + ".nc"
             kx.io.save_dataarray(dec_data[key], save_path)
@@ -477,7 +494,9 @@ def preprocess_and_save_all_recordings(subject, fs_target=400, interpol=False):
     for rec in all_recs:
         if rec not in already_done:
             print("preprocessing: " + rec)
-            preprocess_and_save_recording(subject, rec, fs_target=fs_target, interpol=interpol)
+            preprocess_and_save_recording(
+                subject, rec, fs_target=fs_target, interpol=interpol
+            )
     return
 
 
@@ -620,14 +639,14 @@ def epoc_extractor(subject, recording, epoc_store, t1=0, t2=0):
     onsets = rec_start + (onsets * 1e9).astype("timedelta64[ns]")
     offsets = rec_start + (offsets * 1e9).astype("timedelta64[ns]")
     # plot the onsets and offsets:
-    #dt_range = pd.DatetimeIndex([rec_start, rec_end])
-    #f, ax = plt.subplots(figsize=(20, 5))
-    #ax.plot(dt_range, [0, 0], "k")
-    #for on, off in zip(onsets, offsets):
-        #ax.axvline(on, color="green")
-        #ax.axvline(off, color="red")
-        #ax.axvspan(on, off, color="blue", alpha=0.2)
-    #ax.set_xlim(onsets[0] - pd.Timedelta(1, "s"), offsets[-1] + pd.Timedelta(1, "s"))
+    # dt_range = pd.DatetimeIndex([rec_start, rec_end])
+    # f, ax = plt.subplots(figsize=(20, 5))
+    # ax.plot(dt_range, [0, 0], "k")
+    # for on, off in zip(onsets, offsets):
+    # ax.axvline(on, color="green")
+    # ax.axvline(off, color="red")
+    # ax.axvspan(on, off, color="blue", alpha=0.2)
+    # ax.set_xlim(onsets[0] - pd.Timedelta(1, "s"), offsets[-1] + pd.Timedelta(1, "s"))
 
     # return the onsets and offsets
     return onsets, offsets
@@ -707,7 +726,7 @@ def stim_info_to_yaml(subject, exps, wavt_thresh=1.7e6):
             elif store == "Wavt":
                 wavt_up = get_wavt_up_data(subject, exp, thresh=wavt_thresh)
                 on, off = get_wavt_on_and_off(wavt_up)
-                if len(on)>100:
+                if len(on) > 100:
                     wavt_up = get_wavt_up_data(subject, exp, thresh=1.1e6)
                     on, off = get_wavt_on_and_off(wavt_up)
                 on_list = list(on)
@@ -815,6 +834,7 @@ def get_impt_recs(subject):
             recs.append(rec)
     return recs
 
+
 def get_subject_exps(subject):
     """returns a dictionary with experiments as the keys and their recordings as the values"""
     important_recs = yaml.safe_load(open(f"{materials_root}important_recs.yaml", "r"))
@@ -833,9 +853,10 @@ def get_exp_recs(subject, exp):
     impt_recs = important_recs[subject]
     return list(impt_recs[exp])
 
+
 def check_for_bad_channels(subject, exp):
-    ex_path = f'{materials_root}channel_exclusion.yaml'
-    with open(ex_path, 'r') as f:
+    ex_path = f"{materials_root}channel_exclusion.yaml"
+    with open(ex_path, "r") as f:
         ex = yaml.safe_load(f)
     if subject in ex.keys():
         if exp in ex[subject].keys():
@@ -843,9 +864,10 @@ def check_for_bad_channels(subject, exp):
             return channels_to_exclude
     return []
 
+
 def check_for_bad_channels_new(subject, exp, store):
-    ex_path = f'{materials_root}channel_exclusion.yaml'
-    with open(ex_path, 'r') as f:
+    ex_path = f"{materials_root}channel_exclusion.yaml"
+    with open(ex_path, "r") as f:
         ex = yaml.safe_load(f)
     if subject in ex.keys():
         if exp in ex[subject].keys():
@@ -854,6 +876,7 @@ def check_for_bad_channels_new(subject, exp, store):
             return channels_to_exclude
     return []
 
+
 def get_exp_from_rec(subject, rec):
     important_recs = yaml.safe_load(open(f"{materials_root}important_recs.yaml", "r"))
     for exp in important_recs[subject]:
@@ -861,138 +884,158 @@ def get_exp_from_rec(subject, rec):
             return exp
     return None
 
+
 def _get_histo_path(subject, store):
-    kd_labels = f'{materials_root}{subject}/histology/KD_probe_localizations/{store}.pkl'
+    kd_labels = (
+        f"{materials_root}{subject}/histology/KD_probe_localizations/{store}.pkl"
+    )
     if os.path.exists(kd_labels):
         return kd_labels
     else:
-        return f'{materials_root}{subject}/histology/herbs/{store}.pkl'
+        return f"{materials_root}{subject}/histology/herbs/{store}.pkl"
+
 
 def get_channel_map(subject):
     si = acr.info_pipeline.load_subject_info(subject)
-    if 'NNXr' in si['raw_stores'] and 'NNXo' in si['raw_stores']:
-        stores = ['NNXr', 'NNXo']
-    elif 'NNXr' in si['raw_stores']:
-        stores = ['NNXr']
-    elif 'NNXo' in si['raw_stores']:
-        stores = ['NNXo']
+    if "NNXr" in si["raw_stores"] and "NNXo" in si["raw_stores"]:
+        stores = ["NNXr", "NNXo"]
+    elif "NNXr" in si["raw_stores"]:
+        stores = ["NNXr"]
+    elif "NNXo" in si["raw_stores"]:
+        stores = ["NNXo"]
     else:
-        raise Exception('No raw stores found')
+        raise Exception("No raw stores found")
     channel_map = {}
     for store in stores:
         histo_path = _get_histo_path(subject, store)
         if not os.path.exists(histo_path):
             return channel_map_null(stores=stores, nchans=16)
-        probe = pickle.load(open(histo_path, 'rb'))
-        channel_codes = probe['data']['sites_label']
+        probe = pickle.load(open(histo_path, "rb"))
+        channel_codes = probe["data"]["sites_label"]
         channel_codes = list(channel_codes[0])
         channel_codes.reverse()
-        region_names = probe['data']['label_name']
-        region_names.remove(' ') if ' ' in region_names else region_names
-        region_codes = probe['data']['region_label']
+        region_names = probe["data"]["label_name"]
+        region_names.remove(" ") if " " in region_names else region_names
+        region_codes = probe["data"]["region_label"]
         region_codes.remove(0) if 0 in region_codes else region_codes
         layers = []
         regions = []
         for rn in region_names:
-            if 'white matter' in rn.lower():
-                regions.append('WM')
-                layers.append('7')
+            if "white matter" in rn.lower():
+                regions.append("WM")
+                layers.append("7")
             else:
-                regions.append(rn.split(' layer ')[0])
-                layers.append(rn.split(' layer ')[1])
+                regions.append(rn.split(" layer ")[0])
+                layers.append(rn.split(" layer ")[1])
         code_map = {}
         for i, code in enumerate(region_codes):
             code_map[str(code)] = {}
-            code_map[str(code)]['region'] = regions[i]
-            code_map[str(code)]['layer'] = layers[i]
+            code_map[str(code)]["region"] = regions[i]
+            code_map[str(code)]["layer"] = layers[i]
         channel_map[store] = {}
         for i, code in enumerate(channel_codes):
-            chan = i+1
+            chan = i + 1
             channel_map[store][str(chan)] = code_map[str(code)]
     return channel_map
 
-def channel_map_null(stores=['NNXo', 'NNXr'], nchans=16):
+
+def channel_map_null(stores=["NNXo", "NNXr"], nchans=16):
     channel_map = {}
     for probe in stores:
         channel_map[probe] = {}
-        for chan in range(1, nchans+1):
-            channel_map[probe][str(chan)] = {'region': 'unknown', 'layer': 'unknown'}
+        for chan in range(1, nchans + 1):
+            channel_map[probe][str(chan)] = {"region": "unknown", "layer": "unknown"}
     return channel_map
+
 
 def add_channel_map_to_subject_info(subject, redo=False):
     path = f"{materials_root}{subject}/subject_info.yml"
     with open(path) as f:
         si = yaml.load(f, Loader=yaml.FullLoader)
-    if 'channel_map' in si:
+    if "channel_map" in si:
         if redo == False:
             return si
-    si['channel_map'] = get_channel_map(subject) 
+    si["channel_map"] = get_channel_map(subject)
     acr.info_pipeline.save_subject_info(subject, si)
     return si
 
+
 def get_sd_reb_start(subject, exp):
     """Gets the SD start time and the rebound start time for a given subject and experiment."""
-    
+
     # load some basic information, and the hypnogram
     h = acr.io.load_hypno_full_exp(subject, exp, update=False)
-    rec_times = acr.info_pipeline.subject_info_section(subject, 'rec_times')
+    rec_times = acr.info_pipeline.subject_info_section(subject, "rec_times")
 
-    # load some temporal information about the rebound, baseline, sd, etc. 
+    # load some temporal information about the rebound, baseline, sd, etc.
     stim_start, stim_end = acr.stim.stim_bookends(subject, exp)
-    reb_start = h.hts(stim_end-pd.Timedelta('15min'), stim_end+pd.Timedelta('1h')).st('NREM').iloc[0].start_time
+    reb_start = (
+        h.hts(stim_end - pd.Timedelta("15min"), stim_end + pd.Timedelta("1h"))
+        .st("NREM")
+        .iloc[0]
+        .start_time
+    )
     if reb_start < stim_end:
-        stim_end_hypno = h.loc[(h.start_time<stim_end)&(h.end_time>stim_end)] # if stim time is in the middle of a nrem bout, then it can be the start of the rebound
-        if stim_end_hypno.state.values[0] == 'NREM':
+        stim_end_hypno = h.loc[
+            (h.start_time < stim_end) & (h.end_time > stim_end)
+        ]  # if stim time is in the middle of a nrem bout, then it can be the start of the rebound
+        if stim_end_hypno.state.values[0] == "NREM":
             reb_start = stim_end
         else:
-            raise ValueError('Rebound start time is before stim end time, need to inspect')
+            raise ValueError(
+                "Rebound start time is before stim end time, need to inspect"
+            )
 
-    assert reb_start >= stim_end, 'Rebound start time is before stim end time'
+    assert reb_start >= stim_end, "Rebound start time is before stim end time"
 
-    bl_start_actual = rec_times[f'{exp}-bl']["start"]
+    bl_start_actual = rec_times[f"{exp}-bl"]["start"]
     bl_day = bl_start_actual.split("T")[0]
     bl_start = pd.Timestamp(bl_day + "T09:00:00")
 
-    if f'{exp}-sd' in rec_times.keys():
-        sd_rec = f'{exp}-sd'
-        sd_end = pd.Timestamp(rec_times[sd_rec]['end'])
+    if f"{exp}-sd" in rec_times.keys():
+        sd_rec = f"{exp}-sd"
+        sd_end = pd.Timestamp(rec_times[sd_rec]["end"])
     else:
         sd_rec = exp
         sd_end = stim_start
-    sd_start_actual = pd.Timestamp(rec_times[sd_rec]['start'])
-    sd_day = rec_times[sd_rec]['start'].split("T")[0]
+    sd_start_actual = pd.Timestamp(rec_times[sd_rec]["start"])
+    sd_day = rec_times[sd_rec]["start"].split("T")[0]
     sd_start = pd.Timestamp(sd_day + "T09:00:00")
     return sd_start, reb_start
 
+
 def _get_bl_start(subject, exp):
-    rec_times = acr.info_pipeline.subject_info_section(subject, 'rec_times')
-    bl_start_actual = rec_times[f'{exp}-bl']["start"]
+    rec_times = acr.info_pipeline.subject_info_section(subject, "rec_times")
+    bl_start_actual = rec_times[f"{exp}-bl"]["start"]
     bl_day = bl_start_actual.split("T")[0]
     bl_start = pd.Timestamp(bl_day + "T09:00:00")
     return bl_start
 
+
 def get_bl_bookends(subject, exp):
     bl_start = _get_bl_start(subject, exp)
-    bl_end = bl_start + pd.Timedelta('12h')
+    bl_end = bl_start + pd.Timedelta("12h")
     return bl_start, bl_end
 
+
 def get_exp_bookends(subject, exp):
-    rec_times = acr.info_pipeline.subject_info_section(subject, 'rec_times')
-    exp_rec_start = rec_times[exp]['start']
-    exp_day = exp_rec_start.split('T')[0]
+    rec_times = acr.info_pipeline.subject_info_section(subject, "rec_times")
+    exp_rec_start = rec_times[exp]["start"]
+    exp_day = exp_rec_start.split("T")[0]
     exp_start = pd.Timestamp(exp_day + "T09:00:00")
-    exp_end = exp_start + pd.Timedelta('12h')
+    exp_end = exp_start + pd.Timedelta("12h")
     return exp_start, exp_end
 
-def get_sd_exp_landmarks(subject, exp, update=True, return_early=False):
+
+def get_sd_exp_landmarks(subject, exp, update=True, return_early=False, h=None):
     """
     Gets Experiment Landmarks, relies on up to date and correct spikesorting spreadsheet!!
     ---------------------------------------------------------------------------------------
-    - This function returns the start time of the SD, the start time of the stim, the end time of the stim, 
+    - This function returns the start time of the SD, the start time of the stim, the end time of the stim,
     the start time of the rebound, and the start time of the full exp
-    
+
     - Note that full_experiment_start is the start of the first recording in the recording list for the sort-id of the given experiment.
-    
+
 
     Parameters
     ----------
@@ -1006,41 +1049,52 @@ def get_sd_exp_landmarks(subject, exp, update=True, return_early=False):
     sd_start, stim_start, stim_end, rebound_start, full_exp_start : pd.Timestamp
         experiment landmarks
     """
-    exp_recs = acr.units.get_sorting_recs(subject, f'{exp}-NNXo')
-    h = acr.io.load_hypno_full_exp(subject, exp, update=update)
-    rec_times = acr.info_pipeline.subject_info_section(subject, 'rec_times')
-    full_exp_start = pd.Timestamp(rec_times[exp_recs[0]]['start'])
-    
+    exp_recs = acr.units.get_sorting_recs(subject, f"{exp}-NNXo")
+    if h is None:
+        h = acr.io.load_hypno_full_exp(subject, exp, update=update)
+    rec_times = acr.info_pipeline.subject_info_section(subject, "rec_times")
+    full_exp_start = pd.Timestamp(rec_times[exp_recs[0]]["start"])
+
     # get experimental day start time (i.e. start time of SD):
-    exp_rec_start = rec_times[exp]['start']
-    exp_day = exp_rec_start.split('T')[0]
-    recordings_on_exp_day = [rec for rec in exp_recs if exp_day in rec_times[rec]['start']]
-    exp_recording_starts = [pd.Timestamp(rec_times[rec]['start']) for rec in recordings_on_exp_day]
-    sd_true_start = min(exp_recording_starts) 
-    
+    exp_rec_start = rec_times[exp]["start"]
+    exp_day = exp_rec_start.split("T")[0]
+    recordings_on_exp_day = [
+        rec for rec in exp_recs if exp_day in rec_times[rec]["start"]
+    ]
+    exp_recording_starts = [
+        pd.Timestamp(rec_times[rec]["start"]) for rec in recordings_on_exp_day
+    ]
+    sd_true_start = min(exp_recording_starts)
+
     if return_early:
         return sd_true_start, full_exp_start
-    
-    #load stim times
+
+    # load stim times
     stim_start, stim_end = acr.stim.stim_bookends(subject, exp)
-    
-    #Get the rebound start time
-    candidate_hypno = h.loc[(h['end_time']>stim_end) & (h['state']=='NREM')]
-    if candidate_hypno['start_time'].values[0]<stim_end:
+
+    # Get the rebound start time
+    candidate_hypno = h.loc[(h["end_time"] > stim_end) & (h["state"] == "NREM")]
+    if candidate_hypno["start_time"].values[0] < stim_end:
         rebound_start = stim_end
-    elif candidate_hypno['start_time'].values[0]>stim_end:
-        rebound_start = candidate_hypno['start_time'].values[0]
+    elif candidate_hypno["start_time"].values[0] > stim_end:
+        rebound_start = candidate_hypno["start_time"].values[0]
     else:
-        raise ValueError('No rebound start found, unsure what to do with this hypnogram')
+        raise ValueError(
+            "No rebound start found, unsure what to do with this hypnogram"
+        )
 
     return sd_true_start, stim_start, stim_end, rebound_start, full_exp_start
 
+
 from acr.utils import materials_root
+
+
 def _read_interpol():
-    path = f'{materials_root}interpol.yaml'
-    with open(path, 'r') as file:
+    path = f"{materials_root}interpol.yaml"
+    with open(path, "r") as file:
         interpol = yaml.safe_load(file)
     return interpol
+
 
 def get_interpol_info(subject, probe):
     i = _read_interpol()
@@ -1049,77 +1103,104 @@ def get_interpol_info(subject, probe):
     else:
         return i[subject][probe]
 
+
 def write_interpol_done(subject, rec, probe, chans=None, version=None):
-    assert version in ['ap', 'lfp'], 'version must be ap or lfp'
+    assert version in ["ap", "lfp"], "version must be ap or lfp"
     exp = acr.info_pipeline.get_exp_from_rec(subject, rec)
     if chans is None:
         chans = get_interpol_info(subject, probe)
-    path = f'{materials_root}interpol/{subject}'
+    path = f"{materials_root}interpol/{subject}"
     if not os.path.exists(path):
         os.makedirs(path)
-    path = f'{path}/{rec}--{probe}--{version}.txt'
-    #write the channels to the file
-    with open(path, 'w') as file:
+    path = f"{path}/{rec}--{probe}--{version}.txt"
+    # write the channels to the file
+    with open(path, "w") as file:
         file.write(str(chans))
     return
 
+
 def read_interpol_done(subject, rec, probe, version=None):
-    assert version in ['ap', 'lfp'], 'version must be ap or lfp'
-    path = f'{materials_root}interpol/{subject}/{rec}--{probe}--{version}.txt'
+    assert version in ["ap", "lfp"], "version must be ap or lfp"
+    path = f"{materials_root}interpol/{subject}/{rec}--{probe}--{version}.txt"
     if not os.path.exists(path):
         return None
-    with open(path, 'r') as file:
-        content = file.read().strip('[]').replace(' ', '')
-        chans = [int(chan) for chan in content.split(',') if chan]
+    with open(path, "r") as file:
+        content = file.read().strip("[]").replace(" ", "")
+        chans = [int(chan) for chan in content.split(",") if chan]
     return chans
 
+
 def load_sub_infra_borders():
-    path = '/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/sub_infra_borders.yaml'
-    with open(path, 'r') as f:
+    path = "/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/sub_infra_borders.yaml"
+    with open(path, "r") as f:
         sinf = yaml.safe_load(f)
     return sinf
 
-def _get_sub_inf_only_loc_df(subject, probe, border, method='under', chan_col='channel', label_col='label'):
-    if method == 'under':
+
+def _get_sub_inf_only_loc_df(
+    subject, probe, border, method="under", chan_col="channel", label_col="label"
+):
+    if method == "under":
         infra_chans = np.arange(1, border)
         sub_chans = np.arange(border, 17)
-    elif method == 'over':
-        infra_chans = np.arange(1, border+1)
-        sub_chans = np.arange(border+1, 17)
-    infra_labels = ['infragranular']*len(infra_chans)
-    sub_labels = ['subgranular']*len(sub_chans)
+    elif method == "over":
+        infra_chans = np.arange(1, border + 1)
+        sub_chans = np.arange(border + 1, 17)
+    infra_labels = ["infragranular"] * len(infra_chans)
+    sub_labels = ["subgranular"] * len(sub_chans)
     chans = np.concatenate([infra_chans, sub_chans])
     labels = np.concatenate([infra_labels, sub_labels])
-    loc_df = pl.DataFrame({'subject': subject, 'probe': probe, chan_col: chans, label_col: labels})
+    loc_df = pl.DataFrame(
+        {"subject": subject, "probe": probe, chan_col: chans, label_col: labels}
+    )
     return loc_df
 
-def label_df_sub_infra(df, chan_col='channel', label_col='label', join_on=['subject', 'probe', 'channel']):
+
+def label_df_sub_infra(
+    df, chan_col="channel", label_col="label", join_on=["subject", "probe", "channel"]
+):
     if type(df) == pd.DataFrame:
-        df = pl.from_pandas(df) 
+        df = pl.from_pandas(df)
     sinf = load_sub_infra_borders()
     loc_dfs = []
-    for subject in df['subject'].unique():
-        for probe in ['NNXr', 'NNXo']:
-            prb_gran_upper = sinf[subject][probe]['gran_upper']
-            prb_gran_lower = sinf[subject][probe]['gran_lower'] 
-            
+    for subject in df["subject"].unique():
+        for probe in ["NNXr", "NNXo"]:
+            prb_gran_upper = sinf[subject][probe]["gran_upper"]
+            prb_gran_lower = sinf[subject][probe]["gran_lower"]
+
             if prb_gran_upper == prb_gran_lower:
-                loc_dfs.append(_get_sub_inf_only_loc_df(subject, probe, prb_gran_upper, method='under', chan_col=chan_col, label_col=label_col))
+                loc_dfs.append(
+                    _get_sub_inf_only_loc_df(
+                        subject,
+                        probe,
+                        prb_gran_upper,
+                        method="under",
+                        chan_col=chan_col,
+                        label_col=label_col,
+                    )
+                )
                 continue
             else:
                 infra_chans = np.arange(1, prb_gran_upper)
-                gran_chans = np.arange(prb_gran_upper, prb_gran_lower+1)
-                sub_chans = np.arange(prb_gran_lower+1, 17)
-                infra_labels = ['infragranular']*len(infra_chans)
-                gran_labels = ['granular']*len(gran_chans)
-                sub_labels = ['subgranular']*len(sub_chans)
+                gran_chans = np.arange(prb_gran_upper, prb_gran_lower + 1)
+                sub_chans = np.arange(prb_gran_lower + 1, 17)
+                infra_labels = ["infragranular"] * len(infra_chans)
+                gran_labels = ["granular"] * len(gran_chans)
+                sub_labels = ["subgranular"] * len(sub_chans)
 
                 chans = np.concatenate([infra_chans, gran_chans, sub_chans])
                 labels = np.concatenate([infra_labels, gran_labels, sub_labels])
-                loc_df = pl.DataFrame({'subject': subject, 'probe': probe, chan_col: chans, label_col: labels})
+                loc_df = pl.DataFrame(
+                    {
+                        "subject": subject,
+                        "probe": probe,
+                        chan_col: chans,
+                        label_col: labels,
+                    }
+                )
                 loc_dfs.append(loc_df)
     all_locations = pl.concat(loc_dfs)
-    if 'store' in df.columns:
-        all_locations = all_locations.rename({'probe': 'store'})
-    df = df.join(all_locations, on=join_on, how='left')
+    if "store" in df.columns:
+        all_locations = all_locations.rename({"probe": "store"})
+    df = df.join(all_locations, on=join_on, how="left")
     return df

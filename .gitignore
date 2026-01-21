@@ -45,3 +45,6 @@ __pycache__/
 
 # all parquet files
 *.parquet
+
+# single-unit spike sorting
+spike_sorting/sing_units/

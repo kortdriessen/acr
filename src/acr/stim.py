@@ -1,8 +1,8 @@
-import acr
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import polars as pl
+
+import acr
 
 
 def get_individual_pulse_times(subject, recording, store=None, pandas=False):
@@ -18,13 +18,13 @@ def get_individual_pulse_times(subject, recording, store=None, pandas=False):
         stim store, e.g. 'Pu1_'
     """
     sub_info = acr.info_pipeline.load_subject_info(subject)
-    if store==None:
+    if store is None:
         store = sub_info["stim-exps"][recording]
     pulse_ons = sub_info["stim_info"][recording][store]["onsets"]
     pulse_offs = sub_info["stim_info"][recording][store]["offsets"]
     pulse_ons = pd.to_datetime(pulse_ons)
     pulse_offs = pd.to_datetime(pulse_offs)
-    if pandas==False:
+    if not pandas:
         pulse_offs = pulse_offs.to_numpy()
         pulse_ons = pulse_ons.to_numpy()
     return pulse_ons, pulse_offs
@@ -88,7 +88,9 @@ def stim_bookends(subject, exp, store=None):
 
     sub_info = acr.info_pipeline.load_subject_info(subject)
     stim_store = sub_info["stim-exps"][exp]
-    if type(stim_store) == list: #this should be the Pu1_ store in the few cases where there are multiple stim stores
+    if (
+        type(stim_store) == list
+    ):  # this should be the Pu1_ store in the few cases where there are multiple stim stores
         stim_store = stim_store[0]
     if store != None:
         stim_store = store
@@ -138,7 +140,7 @@ def get_total_spike_rate(df, pons, poffs):
         )
         on_spike_counts = pl.concat([on_spike_counts, pulse_on_count])
         total_on_time += (poffs[i] - pons[i]) / np.timedelta64(1, "s")
-        print(len(on_spike_counts['cluster_id'].unique()))
+        print(len(on_spike_counts["cluster_id"].unique()))
 
     # Then count all of the spikes and total time for pulse-OFF
     for i in np.arange(0, len(pons) - 1):
@@ -200,8 +202,8 @@ def pulse_cal_calcs(df, pons, poffs, trn_starts, trn_ends):
     off_spike_counts = pl.DataFrame()
 
     for trn_start, trn_end in zip(trn_starts, trn_ends):
-        pulse_ons = pons[trn_start:trn_end+1]
-        pulse_offs = poffs[trn_start:trn_end+1]
+        pulse_ons = pons[trn_start : trn_end + 1]
+        pulse_offs = poffs[trn_start : trn_end + 1]
 
         off_interval = pulse_ons[1] - pulse_offs[0]
         off_duration = off_interval / np.timedelta64(1, "s")
@@ -233,13 +235,17 @@ def pulse_cal_calcs(df, pons, poffs, trn_starts, trn_ends):
 
     on_spike_counts = on_spike_counts.to_pandas()
     off_spike_counts = off_spike_counts.to_pandas()
-    
-    on_spike_counts = on_spike_counts.groupby(["probe", "train_number"]).sum().reset_index()
-    off_spike_counts = off_spike_counts.groupby(["probe", "train_number"]).sum().reset_index()
-    
-    on_spike_counts['fr'] = on_spike_counts['count'] / on_spike_counts['duration']
-    off_spike_counts['fr'] = off_spike_counts['count'] / off_spike_counts['duration']
-    
+
+    on_spike_counts = (
+        on_spike_counts.groupby(["probe", "train_number"]).sum().reset_index()
+    )
+    off_spike_counts = (
+        off_spike_counts.groupby(["probe", "train_number"]).sum().reset_index()
+    )
+
+    on_spike_counts["fr"] = on_spike_counts["count"] / on_spike_counts["duration"]
+    off_spike_counts["fr"] = off_spike_counts["count"] / off_spike_counts["duration"]
+
     return on_spike_counts, off_spike_counts
 
 
@@ -289,34 +295,53 @@ def clus_check(subject, exp, probe, clus):
             return False
 
 
-def get_all_stim_info(subject, exp, stim_store=None):
+def get_all_stim_info(subject, exp, stim_store=None, trn_idx=False):
     """Gets the stim start, stim_end, and pulse train times for a given subject and experiment.
     returns:
     --------
     stim_start, stim_end, pon, poff : pd.Timestamp"""
     stim_start, stim_end = acr.stim.stim_bookends(subject, exp)
     pon, poff = get_individual_pulse_times(subject, exp, store=stim_store)
-    ton, toff = acr.stim.get_pulse_train_times(pon, poff)
-    return stim_start, stim_end, pon, poff, pd.to_datetime(ton), pd.to_datetime(toff)
+    if trn_idx:
+        ton, toff = acr.stim.get_pulse_train_times(pon, poff, times=False)
+        return stim_start, stim_end, pon, poff, ton, toff
+    else:
+        ton, toff = acr.stim.get_pulse_train_times(pon, poff)
+        return (
+            stim_start,
+            stim_end,
+            pon,
+            poff,
+            pd.to_datetime(ton),
+            pd.to_datetime(toff),
+        )
+
 
 def assign_train_times_to_frdf(tons, toffs, frdf, pretrain=True):
     frdf = frdf.with_columns(stim_train=pl.lit(None))
     ptrain = 1
     for ton, toff in zip(tons, toffs):
-        frdf = frdf.with_columns(pl.when(pl.col('datetime').is_between(ton, toff))
-                                .then(ptrain)
-                                .otherwise(pl.col('stim_train'))
-                                .alias('stim_train'))
+        frdf = frdf.with_columns(
+            pl.when(pl.col("datetime").is_between(ton, toff))
+            .then(ptrain)
+            .otherwise(pl.col("stim_train"))
+            .alias("stim_train")
+        )
         ptrain += 1
-    if pretrain==True:
-        ptrain_time = tons[0] - pd.Timedelta('1h')
-        frdf = frdf.with_columns(pl.when(((pl.col('datetime')<tons[0]) & (pl.col('datetime')>ptrain_time)))
-                                .then(0)
-                                .otherwise(pl.col('stim_train'))
-                                .alias('stim_train'))
+    if pretrain == True:
+        ptrain_time = tons[0] - pd.Timedelta("1h")
+        frdf = frdf.with_columns(
+            pl.when(
+                ((pl.col("datetime") < tons[0]) & (pl.col("datetime") > ptrain_time))
+            )
+            .then(0)
+            .otherwise(pl.col("stim_train"))
+            .alias("stim_train")
+        )
     return frdf
 
-def add_stim_times_to_df(df, subject, exp, pre_stim='1h'):
+
+def add_stim_times_to_df(df, subject, exp, pre_stim="1h"):
     """Will Add stim train times to any dataframe with a datetime column
 
     Parameters
@@ -329,37 +354,42 @@ def add_stim_times_to_df(df, subject, exp, pre_stim='1h'):
         _description_
     """
     return_pl = False
-    if type(df)==pl.DataFrame:
+    if type(df) == pl.DataFrame:
         df = df.to_pandas()
         return_pl = True
     pon, poff = acr.stim.get_individual_pulse_times(subject, exp)
     ton, toff = acr.stim.get_pulse_train_times(pon, poff, times=True)
-    df['stim'] = 'None'
-    df.loc[(df['datetime']<pon[0])&(df['datetime']>(pon[0]-pd.to_timedelta(pre_stim))), 'stim'] = 'pre-stim'
+    df["stim"] = "None"
+    df.loc[
+        (df["datetime"] < pon[0])
+        & (df["datetime"] > (pon[0] - pd.to_timedelta(pre_stim))),
+        "stim",
+    ] = "pre-stim"
     for i, (t1, t2) in enumerate(zip(ton, toff)):
-        df.loc[(df['datetime']>=t1)&(df['datetime']<=t2), 'stim'] = f'train-{i}'
-    return df if return_pl==False else pl.DataFrame(df)
+        df.loc[(df["datetime"] >= t1) & (df["datetime"] <= t2), "stim"] = f"train-{i}"
+    return df if return_pl == False else pl.DataFrame(df)
 
-def compute_fr_decline_during_stim_by_probe(mua, ton, toff, tbefore='60min'):
+
+def compute_fr_decline_during_stim_by_probe(mua, ton, toff, tbefore="60min"):
     t1 = ton[0] - pd.Timedelta(tbefore)
     t2 = ton[0]
-    pre_counts = mua.ts(t1, t2).group_by('probe').count().to_pandas()
+    pre_counts = mua.ts(t1, t2).group_by("probe").count().to_pandas()
     stim_dfs = pd.DataFrame()
     for i, (on, off) in enumerate(zip(ton, toff)):
         t1 = pd.Timestamp(on)
         t2 = pd.Timestamp(off)
-        stim_df = mua.ts(t1, t2).group_by('probe').count().to_pandas()
-        stim_df['duration'] = (t2-t1).total_seconds()
-        stim_df['stim_bout'] = f'stim-{i}'
+        stim_df = mua.ts(t1, t2).group_by("probe").count().to_pandas()
+        stim_df["duration"] = (t2 - t1).total_seconds()
+        stim_df["stim_bout"] = f"stim-{i}"
         stim_dfs = pd.concat([stim_dfs, stim_df])
-    for probe in pre_counts['probe'].unique():
-        bl_rate = pre_counts.loc[pre_counts['probe']==probe]['count'].values[0]/3600
-        stim_dfs.loc[stim_dfs['probe']==probe, 'bl_rate'] = bl_rate
-    stim_dfs['rate'] = stim_dfs['count']/stim_dfs['duration']
-    stim_dfs['decline'] = (stim_dfs['rate']-stim_dfs['bl_rate'])/stim_dfs['bl_rate']
-    stim_dfs['rel_rate'] = stim_dfs['rate']/stim_dfs['bl_rate']
-    nnxo_rel_rate = stim_dfs.prb('NNXo').sort_values('stim_bout')['rel_rate'].values
-    nnxr_rel_rate = stim_dfs.prb('NNXr').sort_values('stim_bout')['rel_rate'].values
-    rel_decline = stim_dfs.prb('NNXo').sort_values('stim_bout')
-    rel_decline['rel_to_cc'] = nnxo_rel_rate/nnxr_rel_rate
+    for probe in pre_counts["probe"].unique():
+        bl_rate = pre_counts.loc[pre_counts["probe"] == probe]["count"].values[0] / 3600
+        stim_dfs.loc[stim_dfs["probe"] == probe, "bl_rate"] = bl_rate
+    stim_dfs["rate"] = stim_dfs["count"] / stim_dfs["duration"]
+    stim_dfs["decline"] = (stim_dfs["rate"] - stim_dfs["bl_rate"]) / stim_dfs["bl_rate"]
+    stim_dfs["rel_rate"] = stim_dfs["rate"] / stim_dfs["bl_rate"]
+    nnxo_rel_rate = stim_dfs.prb("NNXo").sort_values("stim_bout")["rel_rate"].values
+    nnxr_rel_rate = stim_dfs.prb("NNXr").sort_values("stim_bout")["rel_rate"].values
+    rel_decline = stim_dfs.prb("NNXo").sort_values("stim_bout")
+    rel_decline["rel_to_cc"] = nnxo_rel_rate / nnxr_rel_rate
     return stim_dfs, rel_decline
