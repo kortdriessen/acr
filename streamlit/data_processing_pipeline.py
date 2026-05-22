@@ -1,17 +1,16 @@
-import pandas as pd
-import os
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import streamlit as st
+import tdt
+import yaml
 from kdephys.plot.main import *
 from kdephys.plot.utils import *
-import yaml
+
 import acr
-import tdt
-import streamlit as st
 
 plt.style.use("fast")
-plt.style.use('/home/kdriessen/gh_master/acr/acr/plot_styles/acr_plots.mplstyle')
-import ast
+# plt.style.use('/home/kdriessen/gh_master/acr/acr/plot_styles/acr_plots.mplstyle')
 import acr.duplication_functions as dpf
 
 seq_len = 245760
@@ -262,10 +261,10 @@ if st.button("Update duplication_info.yaml"):
                             data, starts[i], ends[i], dup_starts[i], dup_ends[i]
                         )
                         ax.set_title(
-                            f"{sub} | {rec} | {store} | Duplicate {i+1}/{len(starts)} | {dup_len} samples | Start Time = {starts[i]/24414.0625} s"
+                            f"{sub} | {rec} | {store} | Duplicate {i + 1}/{len(starts)} | {dup_len} samples | Start Time = {starts[i] / 24414.0625} s"
                         )
                         plt.savefig(
-                            f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/data_duplication_figures/{sub}--{rec}--{store}__duplicate{i+1}.png"
+                            f"/Volumes/opto_loc/Data/ACR_PROJECT_MATERIALS/data_duplication_figures/{sub}--{rec}--{store}__duplicate{i + 1}.png"
                         )
                         plt.close("all")
 
@@ -320,7 +319,7 @@ if st.button("Update master_rec_quality.xlsx"):
             if exp == "stores":
                 continue
             for rec in important_recs[sub][exp]:
-                print('CHECKING', sub, rec)
+                print("CHECKING", sub, rec)
                 for store in stores:
                     # check if info already in rec_quality sheet
                     if check_rec_quality_sheet(sub, rec, store):
@@ -363,7 +362,9 @@ if st.button("Update master_rec_quality.xlsx"):
                 continue
             for rec in important_recs[sub][exp]:
                 for store in important_recs[sub]["stores"]:
-                    if check_rec_quality_sheet(sub, rec, store) == False: #if the rec-store combo is not even in the rec quality sheet yet, skip the duration match check
+                    if (
+                        check_rec_quality_sheet(sub, rec, store) == False
+                    ):  # if the rec-store combo is not even in the rec quality sheet yet, skip the duration match check
                         continue
                     if np.logical_and(
                         "NNXr" in important_recs[sub]["stores"],
@@ -391,7 +392,9 @@ if st.button("Update master_rec_quality.xlsx"):
     # save the new_rec_quality sheet
     new_rec_quality.to_excel(recq_path, index=False)
     format_rec_quality(recq_path)
-    st.write("Successfully updated master_rec_quality.xlsx") #TODO: duration match is not filling in zero, is just leaving it blank.
+    st.write(
+        "Successfully updated master_rec_quality.xlsx"
+    )  # TODO: duration match is not filling in zero, is just leaving it blank.
 
 st.markdown("---")
 
@@ -406,7 +409,9 @@ if st.button("Process LFPs (downsample and save raw data)"):
     acr.info_pipeline.preprocess_and_save_all_recordings(subject, fs_target=400)
     st.write("Processing Bandpower Data")
     acr.io.MT_calc_and_save_bandpower_sets(
-        subject, stores=stores, redo=False,
+        subject,
+        stores=stores,
+        redo=False,
     )
 
 if st.button("Calculate and Save Bandpower Sets"):
@@ -423,12 +428,19 @@ if st.button("Process Unit Dataframes"):
     acr.units.save_all_spike_dfs(subject, drop_noise=True, stim=False)
 
 st.markdown("# Process MUA")
-process_mua = st.multiselect('Process MUA?', ["PROCESS MUA!", "NO MUA :("])
+process_mua = st.multiselect("Process MUA?", ["PROCESS MUA!", "NO MUA :("])
 if "PROCESS MUA!" in process_mua:
     possible_exps = acr.info_pipeline.get_subject_exps(subject)
     possible_exps = list(possible_exps.keys())
     exp_list = st.multiselect("Experiments to process MUA for", possible_exps, None)
     if st.button("Run Full Mua Pipeline!"):
         st.write("Preprocessing Data for MUA...")
-        acr.mua.full_mua_pipeline_for_subject(subject, list_of_exps=exp_list, overwrite=False, interpol=True, df_version='concat', detect_jobs=56)
+        acr.mua.full_mua_pipeline_for_subject(
+            subject,
+            list_of_exps=exp_list,
+            overwrite=False,
+            interpol=True,
+            df_version="concat",
+            detect_jobs=56,
+        )
         st.write("MUA Detection Done!")

@@ -132,6 +132,7 @@ sub_swisin_exps = {
     "ACR_52": ["swisin2"],
     "ACR_53": ["swisin"],
     "ACR_54": ["swisin2"],
+    "ACR_55": ["swisin"],
 }
 
 sub_swinat_exps = {
@@ -186,6 +187,7 @@ sub_probe_locations = {
     "ACR_52": "parietal",
     "ACR_53": "frontal",
     "ACR_54": "frontal",
+    "ACR_55": "frontal",
 }
 
 sub_exp_types = {
@@ -223,6 +225,7 @@ sub_exp_types = {
     "ACR_52": "halo",
     "ACR_53": "halo",
     "ACR_54": "halo",
+    "ACR_55": "halo",
 }
 
 

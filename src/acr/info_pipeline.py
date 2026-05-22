@@ -1,21 +1,22 @@
+import datetime
+import math
+import os
+import pickle
+from importlib.machinery import SourceFileLoader
+from itertools import cycle
+from pathlib import Path
+
+import kdephys.xr as kx
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import tdt
-from pathlib import Path
-import matplotlib.pyplot as plt
-import yaml
-import yaml
-import kdephys.xr as kx
-import acr
-import os
-from itertools import cycle
-import math
-from importlib.machinery import SourceFileLoader
-from benedict import benedict
-import datetime
-import pickle
-from acr.utils import raw_data_root, materials_root, opto_loc_root
 import polars as pl
+import tdt
+import yaml
+from benedict import benedict
+
+import acr
+from acr.utils import materials_root, opto_loc_root, raw_data_root
 
 
 def load_rec_quality():
@@ -709,9 +710,9 @@ def stim_info_to_yaml(subject, exps, wavt_thresh=1.7e6):
             print(f"stim info for {exp} already processed. Skipping...")
             continue
         stim_info[exp] = {}
-        assert (
-            type(exps[exp]) == list
-        ), f"stores for each experiment must be a list of stores to use. {exp} is not a list."
+        assert type(exps[exp]) == list, (
+            f"stores for each experiment must be a list of stores to use. {exp} is not a list."
+        )
         for store in exps[exp]:
             if store == "Wav2":
                 wav2_up = get_wav2_up_data(subject, exp)
@@ -1086,9 +1087,6 @@ def get_sd_exp_landmarks(subject, exp, update=True, return_early=False, h=None):
     return sd_true_start, stim_start, stim_end, rebound_start, full_exp_start
 
 
-from acr.utils import materials_root
-
-
 def _read_interpol():
     path = f"{materials_root}interpol.yaml"
     with open(path, "r") as file:
@@ -1098,6 +1096,8 @@ def _read_interpol():
 
 def get_interpol_info(subject, probe):
     i = _read_interpol()
+    if subject not in i.keys():
+        return []
     if probe not in i[subject].keys():
         return []
     else:
