@@ -826,3 +826,96 @@ def calculate_off_df_on_spike_bins(
         }
     )
     return off_df
+
+
+def gen_and_save_base_oodfs(
+    subject, exp, mua=None, off_min_dur=0.05, synth_dur=2.0, segs=False
+):
+    """
+    Save the whole probe and single channel offdf to a file.
+    """
+    if mua is None:
+        mua = acr.mua.load_concat_peaks_df(subject, exp, segs=segs)
+    owp = compute_full_oodf_by_probe(mua, off_min_dur=off_min_dur, synth_dur=synth_dur)
+    osc = compute_full_oodf_by_channel(
+        mua, off_min_dur=off_min_dur, synth_dur=synth_dur
+    )
+    # Save the whole probe offdf
+    off_data_dir = f"{acr.utils.raw_data_root}/mua_data/{subject}/on_off_det"
+    os.makedirs(off_data_dir, exist_ok=True)
+    owp.write_parquet(f"{off_data_dir}/{subject}--{exp}__whole-probe.parquet")
+    # Save the single channel offdf
+    osc.write_parquet(f"{off_data_dir}/{subject}--{exp}__single-chan.parquet")
+    return
+
+
+def load_base_oodfs(
+    subject,
+    exp,
+    version="whole-probe",
+):
+    off_data_dir = f"{acr.utils.raw_data_root}/mua_data/{subject}/on_off_det"
+    path = f"{off_data_dir}/{subject}--{exp}__{version}.parquet"
+    return pl.read_parquet(path)
+
+
+# Hybrid Pipeline
+
+
+def compute_and_save_scmask(subject, exp, min_on=0.03):
+    osc = load_base_oodfs(subject, exp, version="single-chan")
+    osc = true_strictify_oodf(osc, min_on=min_on)
+    scmask = _gen_oodf_mask(osc)
+
+    off_data_dir = f"{acr.utils.raw_data_root}/mua_data/{subject}/on_off_det"
+    os.makedirs(off_data_dir, exist_ok=True)
+    path = f"{off_data_dir}/{subject}--{exp}__MASK.zarr"
+    scmask.to_zarr(path, mode="w")
+
+
+def load_scmask(subject, exp):
+    off_data_dir = f"{acr.utils.raw_data_root}/mua_data/{subject}/on_off_det"
+    path = f"{off_data_dir}/{subject}--{exp}__MASK.zarr"
+    return xr.open_zarr(path)
+
+
+def compute_hybrid_off_df(
+    subject, exp, chan_threshold=12, min_duration=0.05, max_duration=0.4
+):
+    scmask = load_scmask(subject, exp)
+    hdfs = []
+    for probe in ["NNXo", "NNXr"]:
+        vals = scmask[probe].values
+        dtvals = scmask.datetime.values
+        counts = vals.sum(axis=0)
+        off_ixs, off_lens = acr.onoffmua.find_consecutive_runs(
+            counts, threshold=chan_threshold, min_length=50
+        )
+        off_ixs = off_ixs[:-1]
+        off_lens = off_lens[:-1]
+        off_ixs = np.array(off_ixs)
+        off_lens = np.array(off_lens)
+        starts = dtvals[off_ixs]
+        end_ixs = off_ixs + off_lens
+        ends = dtvals[end_ixs]
+        off_lens_sec = off_lens / 1000
+        span_avgs = [np.mean(counts[s:e]) for s, e in zip(off_ixs, end_ixs)]
+        offdf = pl.DataFrame(
+            {
+                "start_datetime": starts,
+                "end_datetime": ends,
+                "duration": off_lens_sec,
+                "status": "off",
+                "span_avg": span_avgs,
+                "probe": probe,
+                "subject": subject,
+                "exp": exp,
+                "threshold": chan_threshold,
+            }
+        )
+        offdf = offdf.filter(
+            (pl.col("duration") >= min_duration) & (pl.col("duration") <= max_duration)
+        )
+        hdfs.append(offdf)
+    hdfs = pl.concat(hdfs)
+    return hdfs
